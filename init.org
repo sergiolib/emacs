@@ -72,11 +72,87 @@
   (setq use-package-always-ensure t)
 #+end_src
 
+* General
+#+begin_src emacs-lisp
+  (use-package general
+    :config
+    (general-evil-setup t)
+    (general-create-definer leader-def
+      :keymaps '(normal insert visual)
+      :prefix "SPC"
+      :global-prefix "C-SPC"))
+#+end_src
 * Basic config
 #+begin_src emacs-lisp
   (setq completion-ignore-case t)
   (setq display-line-numbers-type 'relative)
   (global-display-line-numbers-mode 1)
+#+end_src
+
+** Shortcut to this file
+#+begin_src emacs-lisp
+  (defun sergio/open-init-org-file ()
+    (interactive)
+    (find-file "~/Documents/src/new_configuration/init.org"))
+
+  (global-set-key (kbd "C-c e e") 'sergio/open-init-org-file)
+  (leader-def "e e" 'sergio/open-init-org-file)
+#+end_src
+
+** Recent files
+#+begin_src emacs-lisp
+  (recentf-mode 1)
+#+end_src
+
+** Projects
+#+begin_src emacs-lisp
+(use-package project
+  :ensure nil
+  :config
+  (defun sergio/project-rg ()
+    (interactive)
+    (let ((default-directory (project-root (project-current))))
+      (consult-ripgrep default-directory)))
+  (define-key project-prefix-map "r" 'sergio/project-rg)
+  (add-to-list 'project-switch-commands (list 'sergio/project-rg "Ripgrep"))
+
+  (setq project-switch-commands (remove '(project-vc-dir "VC-Dir") project-switch-commands))
+
+  (defun sergio/project-magit ()
+    (interactive)
+    (let ((default-directory (project-root (project-current))))
+      (magit-status)))
+  (define-key project-prefix-map "m" 'sergio/project-magit)
+  (add-to-list 'project-switch-commands (list 'sergio/project-magit "Magit"))
+
+  (setq project-find-functions (list #'project-try-vc))
+  (add-to-list 'project-switch-commands (list 'project-switch-to-buffer "List buffers"))
+  (defun sergio/project-add-variable ()
+	(interactive)
+	"Add dir variable to the main project directory."
+	(let ((default-directory (project-root (project-current))))
+	  (call-interactively 'add-dir-local-variable)))
+  (define-key project-prefix-map "V" 'sergio/project-add-variable))
+#+end_src
+
+** Eglot
+#+begin_src emacs-lisp
+  (defun sergio/eglot-auto-format ()
+    (interactive)
+    (eglot-format-buffer))
+#+end_src
+
+#+begin_src emacs-lisp
+  (use-package eglot
+    :ensure nil
+    :bind (:map eglot-mode-map
+  	      ("C-c l r" . eglot-rename)
+  	      ("C-c l a" . eglot-code-actions))
+    :general (leader-def
+  	      "l r" 'eglot-rename
+  	      "l a" 'eglot-code-actions
+  	      "l h" 'eldoc)
+    :hook (eglot-managed-mode . (lambda () (add-hook 'after-save-hook 'sergio/eglot-auto-format nil t))))
 #+end_src
 * UI
 ** Modes
@@ -106,6 +182,15 @@
 #+end_src
 
 * Packages
+** Orderless
+#+begin_src emacs-lisp
+  (use-package orderless
+    :ensure t
+    :custom
+    (completion-styles '(orderless basic))
+    (completion-category-overrides '((file (styles partial-completion)))))
+#+end_src
+
 ** Vertico
 #+begin_src emacs-lisp
   (use-package vertico
@@ -115,25 +200,35 @@
 ** Corfu
 #+begin_src emacs-lisp
   (use-package corfu
-    :config
-    (global-corfu-mode 1)
-    :custom
-    (corfu-auto t)
-    (corfu-auto-prefix 1))
+    :init
+    (global-corfu-mode))
 #+end_src
 
-** Orderless
 #+begin_src emacs-lisp
-  (use-package orderless
-    :ensure t
-    :custom
-    (completion-styles '(orderless basic))
-    (completion-category-overrides '((file (styles basic partial-completion)))))
+  (use-package emacs
+    :ensure nil
+    :init
+    ;; TAB cycle if there are only few candidates
+    ;; (setq completion-cycle-threshold 3)
+
+    ;; Enable indentation+completion using the TAB key.
+    ;; `completion-at-point' is often bound to M-TAB.
+    (setq tab-always-indent 'complete)
+
+    ;; Emacs 30 and newer: Disable Ispell completion function. As an alternative,
+    ;; try `cape-dict'.
+    ;;(setq text-mode-ispell-word-completion nil)
+
+    ;; Emacs 28 and newer: Hide commands in M-x which do not apply to the current
+    ;; mode.  Corfu commands are hidden, since they are not used via M-x. This
+    ;; setting is useful beyond Corfu.
+    (setq read-extended-command-predicate #'command-completion-default-include-p))
 #+end_src
 
 ** Cape
 #+begin_src emacs-lisp
-  (use-package cape)
+  (use-package cape
+    :general (leader-def "c f" 'cape-file))
 #+end_src
 
 ** Marginalia
@@ -146,6 +241,8 @@
 ** Embark
 #+begin_src emacs-lisp
   (use-package embark
+    :config
+    (setq embark-quit-after-action nil)
     :bind 
     (:map minibuffer-mode-map
   	("C-." . embark-act))
@@ -156,20 +253,23 @@
     (:map evil-visual-state-map 
   	("C-." . embark-act))
     (:map evil-replace-state-map 
-  	("C-." . embark-act)))
+  	("C-." . embark-act))
+   :general
+   (leader-def
+     "." 'embark-act))
 #+end_src
 ** Evil
 #+begin_src emacs-lisp
   (use-package evil
     :init
     (setq evil-want-keybinding nil)
+    (evil-mode 1)
     :custom
     (evil-want-C-u-scroll t)
     (evil-want-Y-yank-to-eol t)
     (evil-want-fine-undo t)
     (evil-undo-system 'undo-redo)
-    :config
-    (evil-mode 1)
+    (evil-symbol-word-search t)
     :bind
     ("C-M-u" . universal-argument)
     (:map evil-insert-state-map
@@ -187,6 +287,51 @@
     :config
     (evil-collection-init))
 #+end_src
+
+*** Evil surround
+#+begin_src emacs-lisp
+  (use-package evil-surround
+    :after evil
+    :config
+    (evil-surround-mode 1))
+#+end_src
+
+*** Evil multiedit
+#+begin_src emacs-lisp
+  (use-package evil-multiedit
+    :config
+    (evil-define-key '(insert normal visual) evil-multiedit-mode-map (kbd "RET") nil)
+    ;; Make multiedit take casing into consideration
+    (defun make-evil-multiedit-case-sensitive (fn &rest args)
+      (let ((case-fold-search (not iedit-case-sensitive)))
+        (apply fn args)))
+
+    (advice-add #'evil-multiedit-match-and-next :around #'make-evil-multiedit-case-sensitive)
+
+    (evil-global-set-key 'insert (kbd "M-d") 'evil-multiedit-match-and-next)
+    (evil-global-set-key 'normal (kbd "M-d") 'evil-multiedit-match-and-next)
+    (evil-global-set-key 'visual (kbd "M-d") 'evil-multiedit-match-and-next)
+    (evil-global-set-key 'insert (kbd "M-D") 'evil-multiedit-match-and-prev)
+    (evil-global-set-key 'normal (kbd "M-D") 'evil-multiedit-match-and-prev)
+    (evil-global-set-key 'visual (kbd "M-D") 'evil-multiedit-match-and-prev)
+    (evil-global-set-key 'insert (kbd "C-M-d") 'evil-multiedit-match-all)
+    (evil-global-set-key 'normal (kbd "C-M-d") 'evil-multiedit-match-all)
+    (evil-global-set-key 'visual (kbd "C-M-d") 'evil-multiedit-match-all)
+    :custom
+    (evil-multiedit-use-symbols t)
+    (evil-multiedit-follow-matches t))
+#+end_src
+
+#+begin_src emacs-lisp
+(use-package evil-nerd-commenter
+  :config
+  (evilnc-default-hotkeys))
+#+end_src
+
+*** Completion fix
+#+begin_src emacs-lisp
+  (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
+#+end_src
 ** Magit
 #+begin_src emacs-lisp
   (use-package transient)
@@ -194,9 +339,48 @@
 
 #+begin_src emacs-lisp
   (use-package magit
-    :bind ("C-x C-g" . magit-status)
-    ("C-x g" . magit-status))
+    :bind
+    ("C-x C-g" . magit-status)
+    ("C-x g" . magit-status)
+    :general
+    (leader-def
+      "g" 'magit-status))
 #+end_src
+** Consult
+#+begin_src emacs-lisp
+  (use-package consult
+    :bind
+    ("C-x ," . consult-recent-file)
+    ("C-s" . consult-line)
+    ("C-x b" . consult-buffer)
+    ("C-c r" . consult-ripgrep)
+    ("C-c e t" . consult-theme)
+    :general
+    (leader-def
+      "b" 'consult-buffer
+      "," 'consult-recent-file
+      "r" 'consult-ripgrep
+      "e t" 'consult-theme))
+#+end_src
+** Terraform
+#+begin_src emacs-lisp
+      (use-package terraform-mode
+        :mode ("\\.tf$" . terraform-mode)
+        :bind )
+#+end_src
+** Yasnippets
+#+begin_src emacs-lisp
+  (use-package yasnippet
+    :hook
+    (eglot-managed-mode . yas-minor-mode))
+#+end_src
+** Which key
+#+begin_src emacs-lisp
+  (use-package which-key
+    :config
+    (which-key-mode 1))
+#+end_src
+
 * Safe variables
 #+begin_src emacs-lisp
   (custom-set-variables
