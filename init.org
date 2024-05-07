@@ -50,18 +50,6 @@
   (add-hook 'after-init-hook #'elpaca-process-queues)
   (elpaca `(,@elpaca-order))
 
-  (defun +elpaca-unload-seq (e)
-    (and (featurep 'seq) (unload-feature 'seq t))
-    (elpaca--continue-build e))
-
-  ;; You could embed this code directly in the reicpe, I just abstracted it into a function.
-  (defun +elpaca-seq-build-steps ()
-    (append (butlast (if (file-exists-p (expand-file-name "seq" elpaca-builds-directory))
-                         elpaca--pre-built-steps elpaca-build-steps))
-            (list '+elpaca-unload-seq 'elpaca--activate-package)))
-
-  (elpaca `(seq :build ,(+elpaca-seq-build-steps)))
-
   (elpaca elpaca-use-package
     ;; Enable use-package :ensure support for Elpaca.
     (elpaca-use-package-mode))
@@ -72,7 +60,8 @@
   (setq use-package-always-ensure t)
 #+end_src
 
-* General
+* Basic packages
+** General
 #+begin_src emacs-lisp
   (use-package general
     :config
@@ -80,108 +69,11 @@
     (general-create-definer leader-def
       :keymaps '(normal insert visual)
       :prefix "SPC"
-      :global-prefix "C-SPC"))
+      :global-prefix "C-SPC")
+    (leader-def "e e" 'sergio/open-init-org-file)
+    ;; General 
+    (leader-def "p" '(:keymap project-prefix-map :wk "Projects")))
 #+end_src
-* Basic config
-#+begin_src emacs-lisp
-  (setq completion-ignore-case t)
-  (setq display-line-numbers-type 'relative)
-  (global-display-line-numbers-mode 1)
-#+end_src
-
-** Shortcut to this file
-#+begin_src emacs-lisp
-  (defun sergio/open-init-org-file ()
-    (interactive)
-    (find-file "~/Documents/src/new_configuration/init.org"))
-
-  (global-set-key (kbd "C-c e e") 'sergio/open-init-org-file)
-  (leader-def "e e" 'sergio/open-init-org-file)
-#+end_src
-
-** Recent files
-#+begin_src emacs-lisp
-  (recentf-mode 1)
-#+end_src
-
-** Projects
-#+begin_src emacs-lisp
-(use-package project
-  :ensure nil
-  :config
-  (defun sergio/project-rg ()
-    (interactive)
-    (let ((default-directory (project-root (project-current))))
-      (consult-ripgrep default-directory)))
-  (define-key project-prefix-map "r" 'sergio/project-rg)
-  (add-to-list 'project-switch-commands (list 'sergio/project-rg "Ripgrep"))
-
-  (setq project-switch-commands (remove '(project-vc-dir "VC-Dir") project-switch-commands))
-
-  (defun sergio/project-magit ()
-    (interactive)
-    (let ((default-directory (project-root (project-current))))
-      (magit-status)))
-  (define-key project-prefix-map "m" 'sergio/project-magit)
-  (add-to-list 'project-switch-commands (list 'sergio/project-magit "Magit"))
-
-  (setq project-find-functions (list #'project-try-vc))
-  (add-to-list 'project-switch-commands (list 'project-switch-to-buffer "List buffers"))
-  (defun sergio/project-add-variable ()
-	(interactive)
-	"Add dir variable to the main project directory."
-	(let ((default-directory (project-root (project-current))))
-	  (call-interactively 'add-dir-local-variable)))
-  (define-key project-prefix-map "V" 'sergio/project-add-variable))
-#+end_src
-
-** Eglot
-#+begin_src emacs-lisp
-  (defun sergio/eglot-auto-format ()
-    (interactive)
-    (eglot-format-buffer))
-#+end_src
-
-#+begin_src emacs-lisp
-  (use-package eglot
-    :ensure nil
-    :bind (:map eglot-mode-map
-  	      ("C-c l r" . eglot-rename)
-  	      ("C-c l a" . eglot-code-actions))
-    :general (leader-def
-  	      "l r" 'eglot-rename
-  	      "l a" 'eglot-code-actions
-  	      "l h" 'eldoc)
-    :hook (eglot-managed-mode . (lambda () (add-hook 'after-save-hook 'sergio/eglot-auto-format nil t))))
-#+end_src
-* UI
-** Modes
-#+begin_src emacs-lisp
-  (tool-bar-mode -1)
-  (menu-bar-mode -1)
-  (scroll-bar-mode -1)
-#+end_src
-
-** Theme
-#+begin_src emacs-lisp
-  (setq modus-themes-mode-line '(accented))
-  (load-theme 'modus-operandi)
-#+end_src
-
-** Fonts
-#+begin_src emacs-lisp
-  (set-face-attribute 'default nil :height 120 :family "JetBrains Mono")
-
-  (use-package org
-    :config
-    (set-face-attribute 'org-level-1 nil :height 2.0)
-    (set-face-attribute 'org-level-2 nil :height 1.7)
-    (set-face-attribute 'org-level-3 nil :height 1.4)
-    (set-face-attribute 'org-level-4 nil :height 1.2)
-    (set-face-attribute 'org-level-5 nil :height 1.0))
-#+end_src
-
-* Packages
 ** Orderless
 #+begin_src emacs-lisp
   (use-package orderless
@@ -194,14 +86,73 @@
 ** Vertico
 #+begin_src emacs-lisp
   (use-package vertico
-    :config (vertico-mode 1))
+    :ensure (vertico :files (:defaults "extensions/*.el"))
+    :init
+    (vertico-mode 1)
+    (setq vertico-cycle t)
+    (unbind-key (kbd "C-m") 'vertico-map)
+    (add-hook 'minibuffer-setup-hook #'vertico-repeat-save)
+    (keymap-set vertico-map "M-q" #'vertico-quick-insert)
+    (keymap-set vertico-map "C-q" #'vertico-quick-exit)
+    :bind
+    ("M-R" . #'vertico-repeat))
 #+end_src
 
 ** Corfu
 #+begin_src emacs-lisp
   (use-package corfu
+    :ensure (corfu :files (:defaults "extensions/*"))
+    :config
+    (corfu-popupinfo-mode 1)
+    (defun corfu-enable-in-minibuffer ()
+      "Enable Corfu in the minibuffer if `completion-at-point' is bound."
+      (when (where-is-internal #'completion-at-point (list (current-local-map)))
+        (setq-local corfu-auto nil) ;; Enable/disable auto completion
+        (setq-local corfu-echo-delay nil ;; Disable automatic echo and popup
+  		  corfu-popupinfo-delay nil)
+        (corfu-mode 1)))
+    (add-hook 'minibuffer-setup-hook #'corfu-enable-in-minibuffer)
+    (defun corfu-move-to-minibuffer ()
+      (interactive)
+      (when completion-in-region--data
+        (let ((completion-extra-properties corfu--extra)
+  	    completion-cycle-threshold completion-cycling)
+  	(apply #'consult-completion-in-region completion-in-region--data))))
+    (keymap-set corfu-map "M-m" #'corfu-move-to-minibuffer)
+    (add-to-list 'corfu-continue-commands #'corfu-move-to-minibuffer)
+    (dolist (map (list corfu-map minibuffer-mode-map))
+      (define-key map (kbd "C-.") 'embark-act)
+      (define-key map (kbd "M-.") 'embark-dwim)
+      (define-key map (kbd "C-h B") 'embark-bindings))
+    :custom
+    (corfu-cycle t)
+    (corfu-preselect 'prompt)
+    (corfu-auto t)
+    (corfu-auto-prefix 1)
+
+    :bind
+    (:map corfu-map
+  	("TAB" . corfu-next)
+  	([tab] . corfu-next)
+  	("S-TAB" . corfu-previous)
+  	([backtab] . corfu-previous)
+  	("M-d" . corfu-popupinfo-toggle))
+
     :init
-    (global-corfu-mode))
+    (global-corfu-mode 1))
+#+end_src
+
+#+begin_src emacs-lisp
+(use-package corfu-mouse
+  :ensure (corfu-mouse :repo "akib/emacs-corfu-mouse" :host codeberg)
+  :config
+  (corfu-mouse-mode 1))
+
+(use-package kind-icon
+  :custom
+  (kind-icon-default-face 'corfu-default) ; to compute blended backgrounds correctly
+  :config
+  (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
 #+end_src
 
 #+begin_src emacs-lisp
@@ -228,48 +179,42 @@
 ** Cape
 #+begin_src emacs-lisp
   (use-package cape
-    :general (leader-def "c f" 'cape-file))
+    :config (leader-def "c f" 'cape-file))
 #+end_src
 
 ** Marginalia
 #+begin_src emacs-lisp
   (use-package marginalia
-    :config
+    :after vertico
+    :custom
+    (marginalia-annotators '(marginalia-annotators-heavy marginalia-annotators-light nil))
+    :init
     (marginalia-mode 1))
 #+end_src
 
-** Embark
+** Avy
 #+begin_src emacs-lisp
-  (use-package embark
-    :config
-    (setq embark-quit-after-action nil)
-    :bind 
-    (:map minibuffer-mode-map
-  	("C-." . embark-act))
-    (:map evil-normal-state-map
-  	("C-." . embark-act))
-    (:map evil-insert-state-map
-  	("C-." . embark-act))
-    (:map evil-visual-state-map 
-  	("C-." . embark-act))
-    (:map evil-replace-state-map 
-  	("C-." . embark-act))
-   :general
-   (leader-def
-     "." 'embark-act))
+  (use-package avy)
 #+end_src
 ** Evil
+*** Core
 #+begin_src emacs-lisp
   (use-package evil
+    :after avy
     :init
     (setq evil-want-keybinding nil)
     (evil-mode 1)
+    :config
+    (dolist (map (list evil-normal-state-map))
+      (define-key map (kbd "go") 'evil-avy-goto-char))
     :custom
+    (evil-goto-definition-functions '(evil-goto-definition-xref evil-goto-definition-imenu evil-goto-definition-semantic evil-goto-definition-search))
     (evil-want-C-u-scroll t)
     (evil-want-Y-yank-to-eol t)
     (evil-want-fine-undo t)
     (evil-undo-system 'undo-redo)
     (evil-symbol-word-search t)
+    (evil-jumps-cross-buffers nil)
     :bind
     ("C-M-u" . universal-argument)
     (:map evil-insert-state-map
@@ -322,6 +267,7 @@
     (evil-multiedit-follow-matches t))
 #+end_src
 
+*** Evil Commenter
 #+begin_src emacs-lisp
 (use-package evil-nerd-commenter
   :config
@@ -332,19 +278,36 @@
 #+begin_src emacs-lisp
   (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
 #+end_src
-** Magit
+** Which key
 #+begin_src emacs-lisp
-  (use-package transient)
+  (use-package which-key
+    :config
+    (which-key-mode 1))
 #+end_src
 
+** Embark
 #+begin_src emacs-lisp
-  (use-package magit
-    :bind
-    ("C-x C-g" . magit-status)
-    ("C-x g" . magit-status)
-    :general
-    (leader-def
-      "g" 'magit-status))
+  (use-package embark
+    :commands (embark-act embark-dwim embark-bindings)
+    :init
+    (setq enable-recursive-minibuffers t)
+    (minibuffer-depth-indicate-mode 1)
+    :config
+    (setq embark-quit-after-action nil)
+    :bind 
+    (:map minibuffer-mode-map
+  	("C-." . embark-act))
+    (:map evil-normal-state-map
+  	("C-." . embark-act))
+    (:map evil-insert-state-map
+  	("C-." . embark-act))
+    (:map evil-visual-state-map 
+  	("C-." . embark-act))
+    (:map evil-replace-state-map 
+  	("C-." . embark-act))
+   :config
+   (leader-def
+     "." 'embark-act))
 #+end_src
 ** Consult
 #+begin_src emacs-lisp
@@ -355,12 +318,325 @@
     ("C-x b" . consult-buffer)
     ("C-c r" . consult-ripgrep)
     ("C-c e t" . consult-theme)
-    :general
+    :config
+    (consult-customize consult-theme :preview-key '(:debounce 0.5 any))
     (leader-def
       "b" 'consult-buffer
       "," 'consult-recent-file
       "r" 'consult-ripgrep
       "e t" 'consult-theme))
+#+end_src
+** Embark consult
+#+begin_src emacs-lisp
+  (use-package embark-consult
+    :after (embark consult)
+    :demand t
+    :hook
+    (embark-collect-mode . consult-preview-at-point-mode))
+#+end_src
+* Basic config
+#+begin_src emacs-lisp
+  (setq completion-ignore-case t)
+  (setq display-line-numbers-type 'relative)
+  (global-display-line-numbers-mode 1)
+  (dolist (mode '(;;org-mode-hook
+  		term-mode-hook
+  		shell-mode-hook
+  		eshell-mode-hook
+  		vterm-mode-hook
+  		treemacs-mode-hook
+  		inferior-python-mode-hook
+  		pdf-view-mode-hook
+  		compilation-mode-hook))
+    (add-hook mode #'(lambda () (display-line-numbers-mode 0))))
+#+end_src
+
+** Backups
+#+begin_src emacs-lisp
+  (make-directory "~/.emacs_backup/" t)
+  (make-directory "~/.emacs_autosave/" t)
+  (defvar backup-dir (expand-file-name "~/.emacs_backup/"))
+  (defvar autosave-dir (expand-file-name "~/.emacs_autosave/"))
+  (setq backup-directory-alist (list (cons ".*" backup-dir)))
+  (setq auto-save-list-file-prefix autosave-dir)
+  (setq auto-save-file-name-transforms `((".*" ,autosave-dir t)))
+  (setq backup-by-copying t
+        delete-old-versions t
+        kept-new-versions 6
+        kept-old-versions 2
+        version-control t)
+#+end_src
+
+** Agenda
+#+begin_src emacs-lisp
+  (setq agenda-file "~/Documents/agenda.org")
+#+end_src
+
+** Notes
+#+begin_src emacs-lisp
+  (setq notes-directory "~/Documents/Notes/")
+#+end_src
+
+** Scratch message / Startup
+#+begin_src emacs-lisp
+  (setq initial-scratch-message "")
+  (setq inhibit-startup-message t)
+  (setq system-time-locale "C")
+  (setq visual-bell t)
+  (setq enable-local-eval t)
+#+end_src
+
+** Column number mode
+#+begin_src emacs-lisp
+  (column-number-mode 1)
+#+end_src
+** Save history
+#+begin_src emacs-lisp
+  (savehist-mode 1)
+#+end_src
+** Shortcut to this file
+#+begin_src emacs-lisp
+  (use-package emacs
+    :ensure nil
+    :init
+    (defun sergio/open-init-org-file ()
+      (interactive)
+      (find-file "~/Documents/src/new_configuration/init.org"))
+
+    (global-set-key (kbd "C-c e e") 'sergio/open-init-org-file))
+#+end_src
+
+** Recent files
+#+begin_src emacs-lisp
+  (recentf-mode 1)
+#+end_src
+
+** Projects
+#+begin_src emacs-lisp
+    (use-package project
+      :ensure nil
+      :config
+      (defun sergio/project-rg ()
+	(interactive)
+	(let ((default-directory (project-root (project-current))))
+	  (consult-ripgrep default-directory)))
+      (define-key project-prefix-map "r" 'sergio/project-rg)
+      (add-to-list 'project-switch-commands (list 'sergio/project-rg "Ripgrep"))
+
+      (setq project-switch-commands (remove '(project-vc-dir "VC-Dir") project-switch-commands))
+
+      (defun sergio/project-magit ()
+	(interactive)
+	(let ((default-directory (project-root (project-current))))
+	  (magit-status)))
+      (define-key project-prefix-map "m" 'sergio/project-magit)
+      (add-to-list 'project-switch-commands (list 'sergio/project-magit "Magit"))
+
+      (setq project-find-functions (list #'project-try-vc))
+      (add-to-list 'project-switch-commands (list 'project-switch-to-buffer "List buffers"))
+      (defun sergio/project-add-variable ()
+	    (interactive)
+	    "Add dir variable to the main project directory."
+	    (let ((default-directory (project-root (project-current))))
+	      (call-interactively 'add-dir-local-variable)))
+      (define-key project-prefix-map "V" 'sergio/project-add-variable))
+#+end_src
+
+** Shell mode
+#+begin_src emacs-lisp
+  (use-package sh-script
+    :ensure nil
+    :hook
+    (sh-mode . (lambda () (setq-local tab-width 4))))
+#+end_src
+
+** Calendar
+#+begin_src emacs-lisp
+  (use-package calendar
+    :ensure nil
+    :config
+    (setq calendar-week-start-day 1))
+#+end_src
+
+** Winner
+#+begin_src emacs-lisp
+  (winner-mode 1)
+#+end_src
+
+** Disable suspend keys
+#+begin_src emacs-lisp
+  (unbind-key (kbd "C-x C-z") global-map)
+#+end_src
+
+** Project
+#+begin_src emacs-lisp
+  (use-package project
+    :ensure nil
+    :config
+    (defun sergio/project-rg ()
+      (interactive)
+      (let ((default-directory (project-root (project-current))))
+	(consult-ripgrep default-directory)))
+    (define-key project-prefix-map "r" 'sergio/project-rg)
+    (add-to-list 'project-switch-commands (list 'sergio/project-rg "Ripgrep"))
+
+    (setq project-switch-commands (remove '(project-vc-dir "VC-Dir") project-switch-commands))
+
+    (defun sergio/project-magit ()
+      (interactive)
+      (let ((default-directory (project-root (project-current))))
+	(magit-status)))
+    (define-key project-prefix-map "m" 'sergio/project-magit)
+    (add-to-list 'project-switch-commands (list 'sergio/project-magit "Magit"))
+
+    (setq project-find-functions (list #'project-try-vc))
+    (add-to-list 'project-switch-commands (list 'project-switch-to-buffer "List buffers"))
+    (defun sergio/project-add-variable ()
+      (interactive)
+      "Add dir variable to the main project directory."
+      (let ((default-directory (project-root (project-current))))
+	(call-interactively 'add-dir-local-variable)))
+    (define-key project-prefix-map "V" 'sergio/project-add-variable))
+#+end_src
+** Mouse on terminal
+#+begin_src emacs-lisp
+  (xterm-mouse-mode 1)
+#+end_src
+** VC
+#+begin_src emacs-lisp
+  (setq vc-handled-backends '(Git))
+#+end_src
+** Compilation
+#+begin_src emacs-lisp
+  (setq compilation-scroll-output t)
+  (setq switch-to-buffer-obey-display-actions t)
+  (add-hook 'compilation-filter-hook 'ansi-color-compilation-filter)
+#+end_src
+** Wgrep
+#+begin_src emacs-lisp
+(use-package wgrep
+  :defer t)
+#+end_src
+** Dired
+#+begin_src emacs-lisp
+(use-package dired
+  :ensure nil
+  :init
+  (add-hook 'dired-mode-hook 'dired-hide-details-mode)
+  :config
+  (setq dired-listing-switches "-alh"))
+
+(use-package dired-gitignore
+  :bind (:map dired-mode-map
+			  ("C-c h" . #'dired-gitignore-global-mode)))
+
+(use-package dired-narrow)
+#+end_src
+
+#+RESULTS:
+* UI
+** Modes
+#+begin_src emacs-lisp
+  (tool-bar-mode -1)
+  (menu-bar-mode -1)
+  (scroll-bar-mode -1)
+#+end_src
+
+** Theme
+#+begin_src emacs-lisp
+  (setq modus-themes-mode-line '(accented))
+  (load-theme 'modus-operandi)
+#+end_src
+*** Extra themes
+#+begin_src emacs-lisp
+  (use-package doom-themes
+    :config
+    ;; (load-theme 'doom-oceanic-next t)
+    ;; (doom-themes-org-config)
+    )
+
+  (use-package ef-themes
+    :config
+    ;; (load-theme 'ef-elea-light t)
+    )
+#+end_src
+
+** Fonts
+#+begin_src emacs-lisp
+  (defun set-window-faces (frame)
+    "Set font families and sizes for all frames.
+  FRAME is the frame where the setting gets done."
+    (set-face-attribute 'default nil :family "JetBrains Mono" :height 120)
+    (set-face-attribute 'fixed-pitch nil :family "JetBrains Mono" :height 120)
+    (remove-hook 'after-make-frame-functions 'set-window-faces))
+
+  (if (and (boundp 'server-process)
+           (processp server-process)
+           (server-running-p))
+      (add-hook 'after-make-frame-functions #'set-window-faces)
+    (set-window-faces nil))
+
+  (use-package org
+    :ensure nil
+    :config
+    (set-face-attribute 'org-level-1 nil :height 2.0)
+    (set-face-attribute 'org-level-2 nil :height 1.7)
+    (set-face-attribute 'org-level-3 nil :height 1.4)
+    (set-face-attribute 'org-level-4 nil :height 1.2)
+    (set-face-attribute 'org-level-5 nil :height 1.0))
+#+end_src
+
+** Icons
+#+begin_src emacs-lisp
+  (use-package all-the-icons)
+
+  (use-package nerd-icons
+    :config
+    (defun nerd-icons--web-mode-icon (&rest arg-overrides)
+      "Get icon for a `web-mode' buffer with ARG-OVERRIDES."
+      (all-the-icons--web-mode nil arg-overrides)))
+#+end_src
+
+** Show/complete parentheses
+#+begin_src emacs-lisp
+  (show-paren-mode 1)
+  (setq show-paren-style 'expression)
+  (setq show-paren-when-point-inside-paren nil)
+  (add-hook 'python-mode-hook 'electric-pair-mode)
+  (add-hook 'python-ts-mode-hook 'electric-pair-mode)
+  (add-hook 'csharp-mode-hook 'electric-pair-mode)
+  (add-hook 'csharp-ts-mode-hook 'electric-pair-mode)
+#+end_src
+
+** Windmove
+#+begin_src emacs-lisp
+  (windmove-default-keybindings '(ctrl shift))
+#+end_src
+
+** Italic comments
+#+begin_src emacs-lisp
+  ;; Some comment
+  (set-face-attribute 'font-lock-comment-face nil :slant 'italic)
+#+end_src
+
+** Smooth scrolling
+#+begin_src emacs-lisp
+  (pixel-scroll-precision-mode 1)
+#+end_src
+* Packages
+** Magit
+#+begin_src emacs-lisp
+  (use-package transient)
+#+end_src
+
+#+begin_src emacs-lisp
+  (use-package magit
+    :bind
+    ("C-x C-g" . magit-status)
+    ("C-x g" . magit-status)
+    :config
+    (leader-def
+      "g" 'magit-status))
 #+end_src
 ** Terraform
 #+begin_src emacs-lisp
@@ -374,13 +650,556 @@
     :hook
     (eglot-managed-mode . yas-minor-mode))
 #+end_src
-** Which key
+** Rainbow delimiters
 #+begin_src emacs-lisp
-  (use-package which-key
+  (use-package rainbow-delimiters
+    :hook (prog-mode . rainbow-delimiters-mode))
+#+end_src
+** Rainbow mode
+#+begin_src emacs-lisp
+  (use-package rainbow-mode
     :config
-    (which-key-mode 1))
+    (rainbow-mode 1))
+#+end_src
+** Vterm
+#+begin_src emacs-lisp
+  (use-package vterm
+    :commands (vterm vterm-other-window)
+    :config
+    (setq vterm-shell "/usr/bin/bash")
+    :bind
+    (("C-c x x" . 'vterm)
+     ("C-c x v" . 'vterm-other-window)))
+#+end_src
+** Docker
+#+begin_src emacs-lisp
+  (use-package docker
+    :commands (docker docker-compose)
+    :init
+    (setq docker-run-async-with-buffer-function 'docker-run-async-with-buffer-vterm))
+
+#+end_src
+*** Dockerfiles
+#+begin_src emacs-lisp
+  (use-package dockerfile-ts-mode
+    :ensure nil
+    :mode (("\\.dockerfile\\'" . dockerfile-ts-mode)
+  	 ("\\Dockerfile\\'" . dockerfile-ts-mode)))
+#+end_src
+** Yaml
+#+begin_src emacs-lisp
+  (use-package yaml-ts-mode
+    :ensure nil
+    :mode (("\\.yml\\'" . yaml-ts-mode)))
+#+end_src
+** Python
+#+begin_src emacs-lisp
+  (use-package python
+    :ensure nil
+    :bind (:map python-ts-mode-map
+    	      (("M-<left>" . python-indent-shift-left)
+    	       ("M-<right>" . python-indent-shift-right)))
+    :config
+    (add-hook 'python-ts-mode-hook #'(lambda () (require 'dap-python)))
+    (add-hook 'python-ts-mode-hook 'which-function-mode)
+    (define-key inferior-python-mode-map (kbd "C-c C-k") #'(lambda () (interactive) (kill-buffer)))
+    :mode
+    (("\\.py$" . python-ts-mode)
+     ("\\.ipynb$" . python-ts-mode))
+    :bind
+    ("C-c C-k" . 'python-shell-restart)
+    ("C-<return>" . (lambda ()
+  		    (interactive)
+  		    (python-shell-send-statement)
+  		    (python-nav-forward-statement)))
+    :hook
+    ((python-ts-mode python-mode) . eglot-ensure)
+    ((python-ts-mode python-mode) . #'(lambda () (setq outline-regexp "[[:space:]]*\\_<\\(?:def\\|class\\|async[[:space:]]+\\(?:def\\)\\)\\_>")))
+    )
+#+end_src
+** Markdown
+#+begin_src emacs-lisp
+  (use-package markdown-mode
+    :mode ("\\.md\\'" . markdown-mode))
+#+end_src
+** Rest client
+#+begin_src emacs-lisp
+  (use-package restclient
+    :commands (restclient-mode))
+
+  (use-package ob-restclient
+    :after org)
+#+end_src
+** Org mode
+#+begin_src emacs-lisp
+  (use-package mixed-pitch)
+
+  (use-package org
+    :after (dash s)
+    :ensure nil
+    :init
+    (setq org-todo-keywords (quote ((sequence "TODO(t)" "|" "ABANDONED(b)" "DONE(d)"))))
+    (setq org-log-done t)
+    (defun sergio/check-cell ()
+      (interactive)
+      (let ((cell (org-table-get-field)))
+        (if (string-match "[[:graph:]]" cell)
+            (org-table-blank-field)
+          (insert "X")
+          (org-table-align))
+        (org-table-next-row)))
+    :custom
+    (org-ellipsis " ▼")
+    (org-latex-pdf-process
+     '("pdflatex -interaction nonstopmode -output-directory %o %f"
+       "bibtex %b"
+       "pdflatex -interaction nonstopmode -output-directory %o %f"
+       "pdflatex -interaction nonstopmode -output-directory %o %f"))
+    (org-latex-logfiles-extensions
+     '("lof" "lot" "tex~" "aux" "idx" "log" "out" "toc" "nav" "snm" "vrb" "dvi" "fdb_latexmk" "blg" "brf" "fls" "entoc" "ps" "spl" "bbl" "xmpi" "run.xml" "bcf" "acn" "acr" "alg" "glg" "gls" "ist"))
+    (org-confirm-babel-evaluate nil)
+    (org-image-actual-width nil)
+    (org-latex-caption-above nil)
+    (org-src-window-setup 'current-window)
+    (org-M-RET-may-split-line '((default)))
+    (org-odt-preferred-output-format "docx")
+    (org-startup-indented t)
+    :hook
+    (org-mode . url-handler-mode)
+    (org-mode . visual-line-mode)
+    (org-mode . mixed-pitch-mode)
+    ;; (org-mode . org-modern-mode)			;
+    :config
+    (set-face-attribute 'org-level-1 nil :height 2.5)
+    (set-face-attribute 'org-level-2 nil :height 1.8)
+    (set-face-attribute 'org-level-3 nil :height 1.5)
+    (set-face-attribute 'org-level-4 nil :height 1.2)
+    (set-face-attribute 'org-level-5 nil :height 1.1)
+    (setq org-indent-indentation-per-level 2)
+    (require 'ox-md)
+    (require 'org-tempo)
+    (dolist (template '(("sh" . "src shell")
+                        ("el" . "src emacs-lisp")
+                        ("py" . "src python")
+                        ("ja" . "src java")
+                        ("sql" . "src sql")
+                        ("yaml" . "src yaml")
+                        ("rest" . "src restclient")
+                        ("cc" . "src C")))
+      (add-to-list 'org-structure-template-alist template))
+
+    ;; Babel languages.
+    (org-babel-do-load-languages
+     'org-babel-load-languages
+     '((emacs-lisp . t)
+       (latex . t)
+       (shell . t)
+       (C . t)
+       (sql . t)
+       (java . t)
+       (restclient . t)
+       (python . t)))
+
+    (push '("conf-unix" . conf-unix) org-src-lang-modes)
+    (setq org-latex-with-hyperref nil)
+    (unless (boundp 'org-latex-classes)
+      (setq org-latex-classes nil))
+    (add-to-list 'org-agenda-files agenda-file)
+    (mapcar #'(lambda (f) (add-to-list 'org-agenda-files (concat notes-directory f)))
+            (-filter #'(lambda (f) (s-ends-with? ".org" f))
+                     (directory-files notes-directory)))
+    :commands (org-store-link org-agenda org-capture)
+    :bind (("C-c a" . org-agenda)))
+#+end_src
+** Move text
+#+begin_src emacs-lisp
+  (use-package move-text
+    :bind
+    ("M-<up>" . move-text-up)
+    ("M-<down>" . move-text-down))
+#+end_src
+** Json
+#+begin_src emacs-lisp
+  (use-package jsonrpc)
 #+end_src
 
+#+begin_src emacs-lisp
+  (use-package json-mode
+    :config
+    (add-hook 'json-mode-hook #'(lambda () (indent-tabs-mode -1)))
+    (add-hook 'json-mode-hook #'(lambda () (make-local-variable 'js-indent-level) (setq js-indent-level 4)))
+    :mode ("\\.json$" . json-mode))
+#+end_src
+** Eglot
+#+begin_src emacs-lisp
+  (defun sergio/eglot-auto-format ()
+    (interactive)
+    (eglot-format-buffer))
+#+end_src
+
+#+begin_src emacs-lisp
+(use-package eglot
+:ensure nil
+  :commands (eglot eglot-ensure)
+  :hook
+  (((csharp-ts-mode csharp-mode) . eglot-ensure)
+   (eglot-managed-mode . (lambda () (add-hook 'after-save-hook 'sergio/eglot-auto-format nil t))))
+  :config
+  (leader-def
+    "l r" 'eglot-rename
+    "l a" 'eglot-code-actions
+    "l h" 'eldoc)
+  (set-face-attribute 'eglot-diagnostic-tag-unnecessary-face nil :strike-through t)
+  (setq-default eglot-workspace-configuration
+  		'(:pylsp (:plugins (:flake8 (:enabled t)
+  					    :pycodestyle (:enabled :json-false)
+  					    :pyflakes (:enabled :json-false)
+  					    :mccabe (:enabled :json-false)
+  					    :mypy (:enabled t))
+  				   :configurationSources ["flake8"])
+  			 :terraform-ls (:prefillRequiredFields t)))
+  (setq eglot-events-buffer-config '(:size 0 :format full))
+  (setq eglot-server-programs `(((rust-ts-mode rust-mode) . ("rust-analyzer"))
+  				((cmake-mode cmake-ts-mode) . ("cmake-language-server"))
+  				(vimrc-mode . ("vim-language-server" "--stdio"))
+  				((python-mode python-ts-mode)
+				 . ,(eglot-alternatives
+                                     '("pylsp" "pyls" ("pyright-langserver" "--stdio") "jedi-language-server")))
+  				((js-json-mode json-mode json-ts-mode)
+				 . ,(eglot-alternatives '(("vscode-json-language-server" "--stdio")
+                                                          ("vscode-json-languageserver" "--stdio")
+                                                          ("json-languageserver" "--stdio"))))
+  				((js-mode js-ts-mode tsx-ts-mode typescript-ts-mode typescript-mode)
+				 . ("typescript-language-server" "--stdio"))
+  				((bash-ts-mode sh-mode) . ("bash-language-server" "start"))
+  				((php-mode phps-mode)
+				 . ,(eglot-alternatives
+                                     '(("phpactor" "language-server")
+                                       ("php" "vendor/felixfbecker/language-server/bin/php-language-server.php"))))
+  				((c-mode c-ts-mode c++-mode c++-ts-mode objc-mode)
+				 . ,(eglot-alternatives
+                                     '("clangd" "ccls")))
+  				(((caml-mode :language-id "ocaml")
+                                  (tuareg-mode :language-id "ocaml") reason-mode)
+				 . ("ocamllsp"))
+  				((ruby-mode ruby-ts-mode)
+				 . ("solargraph" "socket" "--port" :autoport))
+  				(haskell-mode
+				 . ("haskell-language-server-wrapper" "--lsp"))
+  				(elm-mode . ("elm-language-server"))
+  				(mint-mode . ("mint" "ls"))
+  				(kotlin-mode . ("kotlin-language-server"))
+  				((go-mode go-dot-mod-mode go-dot-work-mode go-ts-mode go-mod-ts-mode)
+				 . ("gopls"))
+  				((R-mode ess-r-mode) . ("R" "--slave" "-e"
+  							"languageserver::run()"))
+  				((java-mode java-ts-mode) . ("jdtls"))
+  				((dart-mode dart-ts-mode)
+				 . ("dart" "language-server"
+                                    "--client-id" "emacs.eglot-dart"))
+  				((elixir-mode elixir-ts-mode heex-ts-mode)
+				 . ,(if (and (fboundp 'w32-shell-dos-semantics)
+                                             (w32-shell-dos-semantics))
+  					'("language_server.bat")
+                                      (eglot-alternatives
+                                       '("language_server.sh" "start_lexical.sh"))))
+  				(ada-mode . ("ada_language_server"))
+  				(scala-mode . ,(eglot-alternatives
+  						'("metals" "metals-emacs")))
+  				(racket-mode . ("racket" "-l" "racket-langserver"))
+  				((tex-mode context-mode texinfo-mode bibtex-mode)
+				 . ,(eglot-alternatives '("digestif" "texlab")))
+  				(erlang-mode . ("erlang_ls" "--transport" "stdio"))
+  				((yaml-ts-mode yaml-mode) . ("yaml-language-server" "--stdio"))
+  				(nix-mode . ,(eglot-alternatives '("nil" "rnix-lsp" "nixd")))
+  				(nickel-mode . ("nls"))
+  				(gdscript-mode . ("localhost" 6008))
+  				((fortran-mode f90-mode) . ("fortls"))
+  				(futhark-mode . ("futhark" "lsp"))
+  				((lua-mode lua-ts-mode) . ,(eglot-alternatives
+                                                            '("lua-language-server" "lua-lsp")))
+  				(zig-mode . ("zls"))
+  				((css-mode css-ts-mode)
+				 . ,(eglot-alternatives '(("vscode-css-language-server" "--stdio")
+                                                          ("css-languageserver" "--stdio"))))
+  				(html-mode . ,(eglot-alternatives '(("vscode-html-language-server" "--stdio") ("html-languageserver" "--stdio"))))
+  				((dockerfile-mode dockerfile-ts-mode) . ("docker-langserver" "--stdio"))
+  				((clojure-mode clojurescript-mode clojurec-mode clojure-ts-mode)
+				 . ("clojure-lsp"))
+  				((csharp-mode csharp-ts-mode)
+				 . ,(eglot-alternatives
+                                     '(("OmniSharp" "-lsp")
+                                       ("csharp-ls"))))
+  				(purescript-mode . ("purescript-language-server" "--stdio"))
+  				((perl-mode cperl-mode) . ("perl" "-MPerl::LanguageServer" "-e" "Perl::LanguageServer::run"))
+  				(markdown-mode
+				 . ,(eglot-alternatives
+                                     '(("marksman" "server")
+                                       ("vscode-markdown-language-server" "--stdio"))))
+  				(graphviz-dot-mode . ("dot-language-server" "--stdio"))
+  				(terraform-mode . ("terraform-ls" "serve"))
+  				(svelte-mode . ("svelteserver" "--stdio"))))
+  (defun sergio/count-flymake-errors ()
+    (let ((count 0))
+      (dolist (d (flymake-diagnostics))
+	(when (= (flymake--severity :error)
+  		 (flymake--severity (flymake-diagnostic-type d)))
+  	  (cl-incf count)))
+      count))
+  (defun sergio/prepend-flymake-to-eldoc ()
+    "Remove the flymake eldoc function if it is there, and then move it to the beginning of the eldoc-documentation-functions list."
+    (interactive)
+    (let* ((funcs eldoc-documentation-functions)
+  	   (funcs-with-flymake (push 'flymake-eldoc-function funcs))
+  	   (funcs-final (cl-remove-duplicates funcs-with-flymake :from-end t)))
+      (setq eldoc-documentation-functions funcs-final)))
+  (add-hook 'eglot-managed-mode-hook 'sergio/prepend-flymake-to-eldoc)
+
+  :bind (:map eglot-mode-map
+  	      ("C-c l r" . eglot-rename)
+  	      ("C-c l a" . eglot-code-actions)))
+#+end_src
+** C#
+#+begin_src emacs-lisp
+  (use-package csharp-mode
+    :ensure nil
+    :init
+    (add-hook 'csharp-ts-mode-hook 'dap-mode)
+    (add-hook 'csharp-ts-mode-hook 'eldoc-mode)
+    (add-hook 'csharp-ts-mode-hook #'(lambda () (require 'dap-netcore)))
+    (add-hook 'csharp-ts-mode-hook 'which-function-mode)
+    (add-hook 'csharp-ts-mode-hook #'(lambda () (setq-local tab-width 4)))
+    :config
+    :init
+    (add-to-list 'exec-path "~/.local/omnisharp")
+    (setq dap-netcore-download-url "https://github.com/Samsung/netcoredbg/releases/download/2.2.3-992/netcoredbg-linux-amd64.tar.gz")
+    :mode ("\\.cs$" . csharp-ts-mode))
+#+end_src
+** Save place
+#+begin_src emacs-lisp
+  (use-package saveplace
+    :ensure nil
+    :init
+    (save-place-mode 1))
+#+end_src
+** Ox-Pandoc
+#+begin_src emacs-lisp
+(use-package ox-pandoc
+  :defer t)
+#+end_src
+** Ibuffer
+#+begin_src emacs-lisp
+(setq ibuffer-saved-filter-groups
+	  (quote (("default"
+			   ("dired" (mode . dired-mode))
+			   ("help" (or
+						(mode . helpful-mode)
+						(mode . help-mode)
+						(mode . Info-mode)))
+			   ("org" (or
+					   (mode . org-mode)
+					   (name . "^\\*Org.*\\*$"))
+				("emacs" (or
+						  (name . "^\\*scratch\\*$")
+						  (name . "^\\*Backtrace\\*$")
+						  (name . "^\\*Compile-Log\\*$")
+						  (name . "^\\*Async-native-compile-log\\*$")
+						  (name . "^\\*Messages\\*$"))))))))
+(add-hook 'ibuffer-mode-hook
+		  (lambda ()
+			(ibuffer-switch-to-saved-filter-groups "default")))
+#+end_src
+** Git gutter
+#+begin_src emacs-lisp
+(use-package git-gutter
+  :config
+  (global-git-gutter-mode 1))
+#+end_src
+
+* Fixes
+** Keywords align
+#+begin_src emacs-lisp
+  (load-file (concat user-emacs-directory "fix_keywords_align.el"))
+#+end_src
+
+#+begin_src emacs-lisp :tangle fix_keywords_align.el
+(advice-add #'calculate-lisp-indent :override #'void~calculate-lisp-indent)
+
+(defun void~calculate-lisp-indent (&optional parse-start)
+  "Add better indentation for quoted and backquoted lists."
+  ;; This line because `calculate-lisp-indent-last-sexp` was defined with `defvar`
+  ;; with it's value ommited, marking it special and only defining it locally. So 
+  ;; if you don't have this, you'll get a void variable error.
+  (defvar calculate-lisp-indent-last-sexp)
+  (save-excursion
+    (beginning-of-line)
+    (let ((indent-point (point))
+          state
+          ;; setting this to a number inhibits calling hook
+          (desired-indent nil)
+          (retry t)
+          calculate-lisp-indent-last-sexp containing-sexp)
+      (cond ((or (markerp parse-start) (integerp parse-start))
+             (goto-char parse-start))
+            ((null parse-start) (beginning-of-defun))
+            (t (setq state parse-start)))
+      (unless state
+        ;; Find outermost containing sexp
+        (while (< (point) indent-point)
+          (setq state (parse-partial-sexp (point) indent-point 0))))
+      ;; Find innermost containing sexp
+      (while (and retry
+                  state
+                  (> (elt state 0) 0))
+        (setq retry nil)
+        (setq calculate-lisp-indent-last-sexp (elt state 2))
+        (setq containing-sexp (elt state 1))
+        ;; Position following last unclosed open.
+        (goto-char (1+ containing-sexp))
+        ;; Is there a complete sexp since then?
+        (if (and calculate-lisp-indent-last-sexp
+                 (> calculate-lisp-indent-last-sexp (point)))
+            ;; Yes, but is there a containing sexp after that?
+            (let ((peek (parse-partial-sexp calculate-lisp-indent-last-sexp
+                                            indent-point 0)))
+              (if (setq retry (car (cdr peek))) (setq state peek)))))
+      (if retry
+          nil
+        ;; Innermost containing sexp found
+        (goto-char (1+ containing-sexp))
+        (if (not calculate-lisp-indent-last-sexp)
+            ;; indent-point immediately follows open paren.
+            ;; Don't call hook.
+            (setq desired-indent (current-column))
+          ;; Find the start of first element of containing sexp.
+          (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
+          (cond ((looking-at "\\s(")
+                 ;; First element of containing sexp is a list.
+                 ;; Indent under that list.
+                 )
+                ((> (save-excursion (forward-line 1) (point))
+                    calculate-lisp-indent-last-sexp)
+                 ;; This is the first line to start within the containing sexp.
+                 ;; It's almost certainly a function call.
+                 (if (or
+                      ;; Containing sexp has nothing before this line
+                      ;; except the first element. Indent under that element.
+                      (= (point) calculate-lisp-indent-last-sexp)
+
+                      ;; First sexp after `containing-sexp' is a keyword. This
+                      ;; condition is more debatable. It's so that I can have
+                      ;; unquoted plists in macros. It assumes that you won't
+                      ;; make a function whose name is a keyword.
+                      ;; (when-let (char-after (char-after (1+ containing-sexp)))
+                      ;;   (char-equal char-after ?:))
+
+                      ;; Check for quotes or backquotes around.
+                      (let* ((positions (elt state 9))
+                             (last (car (last positions)))
+                             (rest (reverse (butlast positions)))
+                             (any-quoted-p nil)
+                             (point nil))
+                        (or
+                         (when-let (char (char-before last))
+                           (or (char-equal char ?')
+                               (char-equal char ?`)))
+                         (progn
+                           (while (and rest (not any-quoted-p))
+                             (setq point (pop rest))
+                             (setq any-quoted-p
+                                   (or
+                                    (when-let (char (char-before point))
+                                      (or (char-equal char ?')
+                                          (char-equal char ?`)))
+                                    (save-excursion
+                                      (goto-char (1+ point))
+                                      (looking-at-p
+                                       "\\(?:back\\)?quote[\t\n\f\s]+(")))))
+                           any-quoted-p))))
+                     ;; Containing sexp has nothing before this line
+                     ;; except the first element.  Indent under that element.
+                     nil
+                   ;; Skip the first element, find start of second (the first
+                   ;; argument of the function call) and indent under.
+                   (progn (forward-sexp 1)
+                          (parse-partial-sexp (point)
+                                              calculate-lisp-indent-last-sexp
+                                              0 t)))
+                 (backward-prefix-chars))
+                (t
+                 ;; Indent beneath first sexp on same line as
+                 ;; `calculate-lisp-indent-last-sexp'.  Again, it's
+                 ;; almost certainly a function call.
+                 (goto-char calculate-lisp-indent-last-sexp)
+                 (beginning-of-line)
+                 (parse-partial-sexp (point) calculate-lisp-indent-last-sexp
+                                     0 t)
+                 (backward-prefix-chars)))))
+      ;; Point is at the point to indent under unless we are inside a string.
+      ;; Call indentation hook except when overridden by lisp-indent-offset
+      ;; or if the desired indentation has already been computed.
+      (let ((normal-indent (current-column)))
+        (cond ((elt state 3)
+               ;; Inside a string, don't change indentation.
+               nil)
+              ((and (integerp lisp-indent-offset) containing-sexp)
+               ;; Indent by constant offset
+               (goto-char containing-sexp)
+               (+ (current-column) lisp-indent-offset))
+              ;; in this case calculate-lisp-indent-last-sexp is not nil
+              (calculate-lisp-indent-last-sexp
+               (or
+                ;; try to align the parameters of a known function
+                (and lisp-indent-function
+                     (not retry)
+                     (funcall lisp-indent-function indent-point state))
+                ;; If the function has no special alignment
+                ;; or it does not apply to this argument,
+                ;; try to align a constant-symbol under the last
+                ;; preceding constant symbol, if there is such one of
+                ;; the last 2 preceding symbols, in the previous
+                ;; uncommented line.
+                (and (save-excursion
+                       (goto-char indent-point)
+                       (skip-chars-forward " \t")
+                       (looking-at ":"))
+                     ;; The last sexp may not be at the indentation
+                     ;; where it begins, so find that one, instead.
+                     (save-excursion
+                       (goto-char calculate-lisp-indent-last-sexp)
+                       ;; Handle prefix characters and whitespace
+                       ;; following an open paren.  (Bug#1012)
+                       (backward-prefix-chars)
+                       (while (not (or (looking-back "^[ \t]*\\|([ \t]+"
+                                                     (line-beginning-position))
+                                       (and containing-sexp
+                                            (>= (1+ containing-sexp) (point)))))
+                         (forward-sexp -1)
+                         (backward-prefix-chars))
+                       (setq calculate-lisp-indent-last-sexp (point)))
+                     (> calculate-lisp-indent-last-sexp
+                        (save-excursion
+                          (goto-char (1+ containing-sexp))
+                          (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
+                          (point)))
+                     (let ((parse-sexp-ignore-comments t)
+                           indent)
+                       (goto-char calculate-lisp-indent-last-sexp)
+                       (or (and (looking-at ":")
+                                (setq indent (current-column)))
+                           (and (< (line-beginning-position)
+                                   (prog2 (backward-sexp) (point)))
+                                (looking-at ":")
+                                (setq indent (current-column))))
+                       indent))
+                ;; another symbols or constants not preceded by a constant
+                ;; as defined above.
+                normal-indent))
+              ;; in this case calculate-lisp-indent-last-sexp is nil
+              (desired-indent)
+              (t
+               normal-indent))))))
+#+end_src
 * Safe variables
 #+begin_src emacs-lisp
   (custom-set-variables
