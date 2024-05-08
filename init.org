@@ -739,6 +739,7 @@
           (insert "X")
           (org-table-align))
         (org-table-next-row)))
+    (global-set-key (kbd "C-c C-a") 'org-agenda)
     :custom
     (org-ellipsis " ▼")
     (org-latex-pdf-process
@@ -798,9 +799,7 @@
     (add-to-list 'org-agenda-files agenda-file)
     (mapcar #'(lambda (f) (add-to-list 'org-agenda-files (concat notes-directory f)))
             (-filter #'(lambda (f) (s-ends-with? ".org" f))
-                     (directory-files notes-directory)))
-    :commands (org-store-link org-agenda org-capture)
-    :bind (("C-c a" . org-agenda)))
+                     (directory-files notes-directory))))
 #+end_src
 ** Move text
 #+begin_src emacs-lisp
@@ -1007,6 +1006,15 @@
   (global-git-gutter-mode 1))
 #+end_src
 
+** Denote
+#+begin_src emacs-lisp
+  (use-package denote
+  :bind
+  ("C-c n n" . denote-open-or-create)
+  ("C-c n SPC" . denote)
+  :config
+  (setq denote-directory notes-directory))
+#+end_src
 * Fixes
 ** Keywords align
 #+begin_src emacs-lisp
