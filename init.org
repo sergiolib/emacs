@@ -133,7 +133,6 @@
 *** Evil Commenter
 #+begin_src emacs-lisp
   (use-package evil-nerd-commenter
-    :commands (evilnc-copy-and-comment-lines evilnc-comment-or-uncomment-lines evilnc-comment-or-uncomment-paragraphs evilnc-quick-comment-or-uncomment-to-the-line)
     :config
     (evilnc-default-hotkeys))
 #+end_src
@@ -215,7 +214,6 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
     (corfu-preselect 'prompt)
     (corfu-auto t)
     (corfu-auto-prefix 1)
-
     :bind
     (:map corfu-map
   	("TAB" . corfu-next)
@@ -223,22 +221,22 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
   	("S-TAB" . corfu-previous)
   	([backtab] . corfu-previous)
   	("M-d" . corfu-popupinfo-toggle))
-
     :init
     (global-corfu-mode 1))
 #+end_src
 
 #+begin_src emacs-lisp
-(use-package corfu-mouse
-  :ensure (corfu-mouse :repo "akib/emacs-corfu-mouse" :host codeberg)
-  :config
-  (corfu-mouse-mode 1))
+  (use-package corfu-mouse
+    :ensure (corfu-mouse :repo "akib/emacs-corfu-mouse" :host codeberg)
+    :hook
+    (corfu-mode . corfu-mouse-mode))
 
-(use-package kind-icon
-  :custom
-  (kind-icon-default-face 'corfu-default) ; to compute blended backgrounds correctly
-  :config
-  (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
+  (use-package kind-icon
+    :after corfu
+    :custom
+    (kind-icon-default-face 'corfu-default) ; to compute blended backgrounds correctly
+    :config
+    (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter))
 #+end_src
 
 #+begin_src emacs-lisp
@@ -531,18 +529,20 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 #+end_src
 ** Dired
 #+begin_src emacs-lisp
-(use-package dired
-  :ensure nil
-  :init
-  (add-hook 'dired-mode-hook 'dired-hide-details-mode)
-  :config
-  (setq dired-listing-switches "-alh"))
+  (use-package dired
+    :ensure nil
+    :init
+    (add-hook 'dired-mode-hook 'dired-hide-details-mode)
+    :config
+    (setq dired-listing-switches "-alh"))
 
-(use-package dired-gitignore
-  :bind (:map dired-mode-map
-			  ("C-c h" . #'dired-gitignore-global-mode)))
+  (use-package dired-gitignore
+    :after dired
+    :bind (:map dired-mode-map
+                            ("C-c h" . #'dired-gitignore-global-mode)))
 
-(use-package dired-narrow)
+  (use-package dired-narrow
+    :after dired)
 #+end_src
 
 #+RESULTS:
@@ -562,12 +562,14 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 *** Extra themes
 #+begin_src emacs-lisp
   (use-package doom-themes
+    :defer t
     :config
     ;; (load-theme 'doom-oceanic-next t)
     ;; (doom-themes-org-config)
     )
 
   (use-package ef-themes
+    :defer t
     :config
     ;; (load-theme 'ef-elea-light t)
     )
@@ -629,10 +631,6 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 #+end_src
 * Packages
 ** Magit
-#+begin_src emacs-lisp
-  (use-package transient)
-#+end_src
-
 #+begin_src emacs-lisp
   (use-package magit
     :bind
@@ -998,8 +996,8 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 #+end_src
 ** Ox-Pandoc
 #+begin_src emacs-lisp
-(use-package ox-pandoc
-  :defer t)
+  (use-package ox-pandoc
+    :after org)
 #+end_src
 ** Ibuffer
 #+begin_src emacs-lisp
@@ -1086,7 +1084,8 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 
 ** Noccur
 #+begin_src emacs-lisp
-  (use-package noccur)
+  (use-package noccur
+    :commands (noccur-dired noccur-project))
 #+end_src
 * Fixes
 ** Keywords align
