@@ -575,15 +575,6 @@
            (server-running-p))
       (add-hook 'after-make-frame-functions #'set-window-faces)
     (set-window-faces nil))
-
-  (use-package org
-    :ensure nil
-    :config
-    (set-face-attribute 'org-level-1 nil :height 2.0)
-    (set-face-attribute 'org-level-2 nil :height 1.7)
-    (set-face-attribute 'org-level-3 nil :height 1.4)
-    (set-face-attribute 'org-level-4 nil :height 1.2)
-    (set-face-attribute 'org-level-5 nil :height 1.0))
 #+end_src
 
 ** Icons
@@ -770,11 +761,11 @@
     (org-mode . mixed-pitch-mode)
     ;; (org-mode . org-modern-mode)			;
     :config
-    (set-face-attribute 'org-level-1 nil :height 2.5)
-    (set-face-attribute 'org-level-2 nil :height 1.8)
-    (set-face-attribute 'org-level-3 nil :height 1.5)
+    (set-face-attribute 'org-level-1 nil :height 2.0)
+    (set-face-attribute 'org-level-2 nil :height 1.7)
+    (set-face-attribute 'org-level-3 nil :height 1.4)
     (set-face-attribute 'org-level-4 nil :height 1.2)
-    (set-face-attribute 'org-level-5 nil :height 1.1)
+    (set-face-attribute 'org-level-5 nil :height 1.0)
     (setq org-indent-indentation-per-level 2)
     (require 'ox-md)
     (require 'org-tempo)
