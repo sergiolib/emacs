@@ -736,11 +736,13 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
   (use-package pyvenv
       :init
       (pyvenv-tracking-mode 1)
+      :hook
+      (python-ts-mode . pyvenv-mode)
       :config
       (add-hook 'pyvenv-post-activate-hooks #'(lambda ()
-						(let* ((version_pyscript "import sys; print(f\"{sys.version_info[0]}.{sys.version_info[1]}\", end=\"\")")
-						       (python-version (shell-command-to-string (concat "python -c '" version_pyscript "'"))))
-						 (setenv "PYTHONPATH" (concat pyvenv-virtual-env "lib/python" python-version "/site-packages/"))))))
+  						(let* ((version_pyscript "import sys; print(f\"{sys.version_info[0]}.{sys.version_info[1]}\", end=\"\")")
+  						       (python-version (shell-command-to-string (concat "python -c '" version_pyscript "'"))))
+  						 (setenv "PYTHONPATH" (concat pyvenv-virtual-env "lib/python" python-version "/site-packages/"))))))
 #+end_src
 ** Poetry
 #+begin_src emacs-lisp
@@ -875,11 +877,12 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 
 #+begin_src emacs-lisp
   (use-package eglot
-    :ensure nil
     :commands (eglot eglot-ensure)
+    :init
+    (add-hook 'pyvenv-post-activate-hooks 'eglot-ensure 100)
+    :ensure nil
     :hook
-    (((csharp-ts-mode csharp-mode) . eglot-ensure)
-    (eglot-managed-mode . (lambda () (add-hook 'after-save-hook 'sergio/eglot-auto-format nil t))))
+    ((csharp-ts-mode csharp-mode) . eglot-ensure)
     :general
     (leader-def
       "l r" 'eglot-rename
@@ -887,6 +890,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
       "l h" 'eldoc)
     :config
     (set-face-attribute 'eglot-diagnostic-tag-unnecessary-face nil :strike-through t)
+    (add-hook 'eglot-managed-mode #'(lambda () (add-hook 'after-save-hook 'sergio/eglot-auto-format nil t)))
     (add-hook 'eglot-managed-mode-hook (lambda () (setq completion-at-point-functions '(eglot-completion-at-point python-completion-at-point cape-file t))))
     (setq-default eglot-workspace-configuration
   		'(:pylsp (:plugins (:flake8 (:enabled t)
@@ -992,8 +996,6 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
   	   (funcs-final (cl-remove-duplicates funcs-with-flymake :from-end t)))
         (setq eldoc-documentation-functions funcs-final)))
     (add-hook 'eglot-managed-mode-hook 'sergio/prepend-flymake-to-eldoc)
-    (add-hook 'pyvenv-post-activate-hooks 'eglot-ensure 100)
-
     :bind (:map eglot-mode-map
                 ("C-c l r" . eglot-rename)
                 ("C-c l a" . eglot-code-actions)))
