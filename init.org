@@ -712,32 +712,35 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
   (use-package python
     :ensure nil
     :bind (:map python-ts-mode-map
-    	      (("M-<left>" . python-indent-shift-left)
-    	       ("M-<right>" . python-indent-shift-right)))
+  	      (
+  	      ("M-<left>" . python-indent-shift-left)
+  	      ("M-<right>" . python-indent-shift-right)
+  	      ("C-c C-k" . python-shell-restart)
+  	      ("C-<return>" . (lambda ()
+  				(interactive)
+  				(python-shell-send-statement)
+  				(python-nav-forward-statement)))
+  	      ))
     :config
-    (add-hook 'python-ts-mode-hook 'which-function-mode)
-    (define-key inferior-python-mode-map (kbd "C-c C-k") #'(lambda () (interactive) (kill-buffer)))
+    (define-key inferior-python-mode-map (kbd "C-c C-k")
+  	      #'(lambda () (interactive) (kill-buffer)))
     :mode
     (("\\.py$" . python-ts-mode)
      ("\\.ipynb$" . python-ts-mode))
-    :bind
-    ("C-c C-k" . 'python-shell-restart)
-    ("C-<return>" . (lambda ()
-  		    (interactive)
-  		    (python-shell-send-statement)
-  		    (python-nav-forward-statement)))
     :hook
-    ((python-ts-mode python-mode) . eglot-ensure)
-    ((python-ts-mode python-mode) . #'(lambda () (setq outline-regexp "[[:space:]]*\\_<\\(?:def\\|class\\|async[[:space:]]+\\(?:def\\)\\)\\_>")))
+    ((python-ts-mode python-mode) . (lambda () (setq outline-regexp "[[:space:]]*\\_<\\(?:def\\|class\\|async[[:space:]]+\\(?:def\\)\\)\\_>")))
     )
 #+end_src
 ** Pyvenv
 #+begin_src emacs-lisp
   (use-package pyvenv
-    :init
-    (pyvenv-tracking-mode 1)
-    :config
-    (add-hook 'pyvenv-post-activate-hooks #'(lambda () (setenv "PYTHONPATH" pyvenv-virtual-env))))
+      :init
+      (pyvenv-tracking-mode 1)
+      :config
+      (add-hook 'pyvenv-post-activate-hooks #'(lambda ()
+						(let* ((version_pyscript "import sys; print(f\"{sys.version_info[0]}.{sys.version_info[1]}\", end=\"\")")
+						       (python-version (shell-command-to-string (concat "python -c '" version_pyscript "'"))))
+						 (setenv "PYTHONPATH" (concat pyvenv-virtual-env "lib/python" python-version "/site-packages/"))))))
 #+end_src
 ** Poetry
 #+begin_src emacs-lisp
@@ -876,7 +879,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
     :commands (eglot eglot-ensure)
     :hook
     (((csharp-ts-mode csharp-mode) . eglot-ensure)
-     (eglot-managed-mode . (lambda () (add-hook 'after-save-hook 'sergio/eglot-auto-format nil t))))
+    (eglot-managed-mode . (lambda () (add-hook 'after-save-hook 'sergio/eglot-auto-format nil t))))
     :general
     (leader-def
       "l r" 'eglot-rename
@@ -989,6 +992,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
   	   (funcs-final (cl-remove-duplicates funcs-with-flymake :from-end t)))
         (setq eldoc-documentation-functions funcs-final)))
     (add-hook 'eglot-managed-mode-hook 'sergio/prepend-flymake-to-eldoc)
+    (add-hook 'pyvenv-post-activate-hooks 'eglot-ensure 100)
 
     :bind (:map eglot-mode-map
                 ("C-c l r" . eglot-rename)
