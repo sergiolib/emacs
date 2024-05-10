@@ -715,7 +715,6 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
     	      (("M-<left>" . python-indent-shift-left)
     	       ("M-<right>" . python-indent-shift-right)))
     :config
-    (add-hook 'python-ts-mode-hook #'(lambda () (require 'dap-python)))
     (add-hook 'python-ts-mode-hook 'which-function-mode)
     (define-key inferior-python-mode-map (kbd "C-c C-k") #'(lambda () (interactive) (kill-buffer)))
     :mode
@@ -731,6 +730,20 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
     ((python-ts-mode python-mode) . eglot-ensure)
     ((python-ts-mode python-mode) . #'(lambda () (setq outline-regexp "[[:space:]]*\\_<\\(?:def\\|class\\|async[[:space:]]+\\(?:def\\)\\)\\_>")))
     )
+#+end_src
+** Pyvenv
+#+begin_src emacs-lisp
+  (use-package pyvenv
+    :init
+    (pyvenv-tracking-mode 1)
+    :config
+    (add-hook 'pyvenv-post-activate-hooks #'(lambda () (setenv "PYTHONPATH" pyvenv-virtual-env))))
+#+end_src
+** Poetry
+#+begin_src emacs-lisp
+  (use-package poetry
+    :hook
+    (python-ts-mode . poetry-tracking-mode))
 #+end_src
 ** Markdown
 #+begin_src emacs-lisp
@@ -871,108 +884,109 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
       "l h" 'eldoc)
     :config
     (set-face-attribute 'eglot-diagnostic-tag-unnecessary-face nil :strike-through t)
+    (add-hook 'eglot-managed-mode-hook (lambda () (setq completion-at-point-functions '(eglot-completion-at-point python-completion-at-point cape-file t))))
     (setq-default eglot-workspace-configuration
-                  '(:pylsp (:plugins (:flake8 (:enabled t)
-                                      :pycodestyle (:enabled :json-false)
-                                      :pyflakes (:enabled :json-false)
-                                      :mccabe (:enabled :json-false)
-                                      :mypy (:enabled t))
-                            :configurationSources ["flake8"])
-                    :terraform-ls (:prefillRequiredFields t)))
+  		'(:pylsp (:plugins (:flake8 (:enabled t)
+  				    :pycodestyle (:enabled :json-false)
+  				    :pyflakes (:enabled :json-false)
+  				    :mccabe (:enabled :json-false)
+  				    :mypy (:enabled t))
+  			  :configurationSources ["flake8"])
+  		  :terraform-ls (:prefillRequiredFields t)))
     (setq eglot-events-buffer-config '(:size 0 :format full))
     (setq eglot-server-programs `(((rust-ts-mode rust-mode) . ("rust-analyzer"))
-                                  ((cmake-mode cmake-ts-mode) . ("cmake-language-server"))
-                                  (vimrc-mode . ("vim-language-server" "--stdio"))
-                                  ((python-mode python-ts-mode)
-                                   . ,(eglot-alternatives
-                                       '("pylsp" "pyls" ("pyright-langserver" "--stdio") "jedi-language-server")))
-                                  ((js-json-mode json-mode json-ts-mode)
-                                   . ,(eglot-alternatives '(("vscode-json-language-server" "--stdio")
-                                                            ("vscode-json-languageserver" "--stdio")
-                                                            ("json-languageserver" "--stdio"))))
-                                  ((js-mode js-ts-mode tsx-ts-mode typescript-ts-mode typescript-mode)
-                                   . ("typescript-language-server" "--stdio"))
-                                  ((bash-ts-mode sh-mode) . ("bash-language-server" "start"))
-                                  ((php-mode phps-mode)
-                                   . ,(eglot-alternatives
-                                       '(("phpactor" "language-server")
-                                         ("php" "vendor/felixfbecker/language-server/bin/php-language-server.php"))))
-                                  ((c-mode c-ts-mode c++-mode c++-ts-mode objc-mode)
-                                   . ,(eglot-alternatives
-                                       '("clangd" "ccls")))
-                                  (((caml-mode :language-id "ocaml")
-                                    (tuareg-mode :language-id "ocaml") reason-mode)
-                                   . ("ocamllsp"))
-                                  ((ruby-mode ruby-ts-mode)
-                                   . ("solargraph" "socket" "--port" :autoport))
-                                  (haskell-mode
-                                   . ("haskell-language-server-wrapper" "--lsp"))
-                                  (elm-mode . ("elm-language-server"))
-                                  (mint-mode . ("mint" "ls"))
-                                  (kotlin-mode . ("kotlin-language-server"))
-                                  ((go-mode go-dot-mod-mode go-dot-work-mode go-ts-mode go-mod-ts-mode)
-                                   . ("gopls"))
-                                  ((R-mode ess-r-mode) . ("R" "--slave" "-e"
-                                                          "languageserver::run()"))
-                                  ((java-mode java-ts-mode) . ("jdtls"))
-                                  ((dart-mode dart-ts-mode)
-                                   . ("dart" "language-server"
-                                      "--client-id" "emacs.eglot-dart"))
-                                  ((elixir-mode elixir-ts-mode heex-ts-mode)
-                                   . ,(if (and (fboundp 'w32-shell-dos-semantics)
-                                           (w32-shell-dos-semantics))
-                                          '("language_server.bat")
-                                        (eglot-alternatives
-                                         '("language_server.sh" "start_lexical.sh"))))
-                                  (ada-mode . ("ada_language_server"))
-                                  (scala-mode . ,(eglot-alternatives
-                                                  '("metals" "metals-emacs")))
-                                  (racket-mode . ("racket" "-l" "racket-langserver"))
-                                  ((tex-mode context-mode texinfo-mode bibtex-mode)
-                                   . ,(eglot-alternatives '("digestif" "texlab")))
-                                  (erlang-mode . ("erlang_ls" "--transport" "stdio"))
-                                  ((yaml-ts-mode yaml-mode) . ("yaml-language-server" "--stdio"))
-                                  (nix-mode . ,(eglot-alternatives '("nil" "rnix-lsp" "nixd")))
-                                  (nickel-mode . ("nls"))
-                                  (gdscript-mode . ("localhost" 6008))
-                                  ((fortran-mode f90-mode) . ("fortls"))
-                                  (futhark-mode . ("futhark" "lsp"))
-                                  ((lua-mode lua-ts-mode) . ,(eglot-alternatives
-                                                              '("lua-language-server" "lua-lsp")))
-                                  (zig-mode . ("zls"))
-                                  ((css-mode css-ts-mode)
-                                   . ,(eglot-alternatives '(("vscode-css-language-server" "--stdio")
-                                                            ("css-languageserver" "--stdio"))))
-                                  (html-mode . ,(eglot-alternatives '(("vscode-html-language-server" "--stdio") ("html-languageserver" "--stdio"))))
-                                  ((dockerfile-mode dockerfile-ts-mode) . ("docker-langserver" "--stdio"))
-                                  ((clojure-mode clojurescript-mode clojurec-mode clojure-ts-mode)
-                                   . ("clojure-lsp"))
-                                  ((csharp-mode csharp-ts-mode)
-                                   . ,(eglot-alternatives
-                                       '(("OmniSharp" "-lsp")
-                                         ("csharp-ls"))))
-                                  (purescript-mode . ("purescript-language-server" "--stdio"))
-                                  ((perl-mode cperl-mode) . ("perl" "-MPerl::LanguageServer" "-e" "Perl::LanguageServer::run"))
-                                  (markdown-mode
-                                   . ,(eglot-alternatives
-                                       '(("marksman" "server")
-                                         ("vscode-markdown-language-server" "--stdio"))))
-                                  (graphviz-dot-mode . ("dot-language-server" "--stdio"))
-                                  (terraform-mode . ("terraform-ls" "serve"))
-                                  (svelte-mode . ("svelteserver" "--stdio"))))
+  				((cmake-mode cmake-ts-mode) . ("cmake-language-server"))
+  				(vimrc-mode . ("vim-language-server" "--stdio"))
+  				((python-mode python-ts-mode)
+  				 . ,(eglot-alternatives
+  				     '("pylsp" "pyls" ("pyright-langserver" "--stdio") "jedi-language-server")))
+  				((js-json-mode json-mode json-ts-mode)
+  				 . ,(eglot-alternatives '(("vscode-json-language-server" "--stdio")
+  							  ("vscode-json-languageserver" "--stdio")
+  							  ("json-languageserver" "--stdio"))))
+  				((js-mode js-ts-mode tsx-ts-mode typescript-ts-mode typescript-mode)
+  				 . ("typescript-language-server" "--stdio"))
+  				((bash-ts-mode sh-mode) . ("bash-language-server" "start"))
+  				((php-mode phps-mode)
+  				 . ,(eglot-alternatives
+  				     '(("phpactor" "language-server")
+  				       ("php" "vendor/felixfbecker/language-server/bin/php-language-server.php"))))
+  				((c-mode c-ts-mode c++-mode c++-ts-mode objc-mode)
+  				 . ,(eglot-alternatives
+  				     '("clangd" "ccls")))
+  				(((caml-mode :language-id "ocaml")
+  				  (tuareg-mode :language-id "ocaml") reason-mode)
+  				 . ("ocamllsp"))
+  				((ruby-mode ruby-ts-mode)
+  				 . ("solargraph" "socket" "--port" :autoport))
+  				(haskell-mode
+  				 . ("haskell-language-server-wrapper" "--lsp"))
+  				(elm-mode . ("elm-language-server"))
+  				(mint-mode . ("mint" "ls"))
+  				(kotlin-mode . ("kotlin-language-server"))
+  				((go-mode go-dot-mod-mode go-dot-work-mode go-ts-mode go-mod-ts-mode)
+  				 . ("gopls"))
+  				((R-mode ess-r-mode) . ("R" "--slave" "-e"
+  							"languageserver::run()"))
+  				((java-mode java-ts-mode) . ("jdtls"))
+  				((dart-mode dart-ts-mode)
+  				 . ("dart" "language-server"
+  				    "--client-id" "emacs.eglot-dart"))
+  				((elixir-mode elixir-ts-mode heex-ts-mode)
+  				 . ,(if (and (fboundp 'w32-shell-dos-semantics)
+  					 (w32-shell-dos-semantics))
+  					'("language_server.bat")
+  				      (eglot-alternatives
+  				       '("language_server.sh" "start_lexical.sh"))))
+  				(ada-mode . ("ada_language_server"))
+  				(scala-mode . ,(eglot-alternatives
+  						'("metals" "metals-emacs")))
+  				(racket-mode . ("racket" "-l" "racket-langserver"))
+  				((tex-mode context-mode texinfo-mode bibtex-mode)
+  				 . ,(eglot-alternatives '("digestif" "texlab")))
+  				(erlang-mode . ("erlang_ls" "--transport" "stdio"))
+  				((yaml-ts-mode yaml-mode) . ("yaml-language-server" "--stdio"))
+  				(nix-mode . ,(eglot-alternatives '("nil" "rnix-lsp" "nixd")))
+  				(nickel-mode . ("nls"))
+  				(gdscript-mode . ("localhost" 6008))
+  				((fortran-mode f90-mode) . ("fortls"))
+  				(futhark-mode . ("futhark" "lsp"))
+  				((lua-mode lua-ts-mode) . ,(eglot-alternatives
+  							    '("lua-language-server" "lua-lsp")))
+  				(zig-mode . ("zls"))
+  				((css-mode css-ts-mode)
+  				 . ,(eglot-alternatives '(("vscode-css-language-server" "--stdio")
+  							  ("css-languageserver" "--stdio"))))
+  				(html-mode . ,(eglot-alternatives '(("vscode-html-language-server" "--stdio") ("html-languageserver" "--stdio"))))
+  				((dockerfile-mode dockerfile-ts-mode) . ("docker-langserver" "--stdio"))
+  				((clojure-mode clojurescript-mode clojurec-mode clojure-ts-mode)
+  				 . ("clojure-lsp"))
+  				((csharp-mode csharp-ts-mode)
+  				 . ,(eglot-alternatives
+  				     '(("OmniSharp" "-lsp")
+  				       ("csharp-ls"))))
+  				(purescript-mode . ("purescript-language-server" "--stdio"))
+  				((perl-mode cperl-mode) . ("perl" "-MPerl::LanguageServer" "-e" "Perl::LanguageServer::run"))
+  				(markdown-mode
+  				 . ,(eglot-alternatives
+  				     '(("marksman" "server")
+  				       ("vscode-markdown-language-server" "--stdio"))))
+  				(graphviz-dot-mode . ("dot-language-server" "--stdio"))
+  				(terraform-mode . ("terraform-ls" "serve"))
+  				(svelte-mode . ("svelteserver" "--stdio"))))
     (defun sergio/count-flymake-errors ()
       (let ((count 0))
         (dolist (d (flymake-diagnostics))
-          (when (= (flymake--severity :error)
-                   (flymake--severity (flymake-diagnostic-type d)))
-            (cl-incf count)))
+  	(when (= (flymake--severity :error)
+  		 (flymake--severity (flymake-diagnostic-type d)))
+  	  (cl-incf count)))
         count))
     (defun sergio/prepend-flymake-to-eldoc ()
       "Remove the flymake eldoc function if it is there, and then move it to the beginning of the eldoc-documentation-functions list."
       (interactive)
       (let* ((funcs eldoc-documentation-functions)
-             (funcs-with-flymake (push 'flymake-eldoc-function funcs))
-             (funcs-final (cl-remove-duplicates funcs-with-flymake :from-end t)))
+  	   (funcs-with-flymake (push 'flymake-eldoc-function funcs))
+  	   (funcs-final (cl-remove-duplicates funcs-with-flymake :from-end t)))
         (setq eldoc-documentation-functions funcs-final)))
     (add-hook 'eglot-managed-mode-hook 'sergio/prepend-flymake-to-eldoc)
 
@@ -1096,6 +1110,14 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
   (use-package noccur
     :commands (noccur-dired noccur-project))
 #+end_src
+
+** Doom modeline
+#+begin_src emacs-lisp
+  (use-package doom-modeline
+    :init
+    (doom-modeline-mode 1))
+#+end_src
+
 * Fixes
 ** Keywords align
 #+begin_src emacs-lisp
