@@ -607,10 +607,10 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
   (show-paren-mode 1)
   (setq show-paren-style 'expression)
   (setq show-paren-when-point-inside-paren nil)
-  (add-hook 'python-mode-hook 'electric-pair-mode)
-  (add-hook 'python-ts-mode-hook 'electric-pair-mode)
-  (add-hook 'csharp-mode-hook 'electric-pair-mode)
-  (add-hook 'csharp-ts-mode-hook 'electric-pair-mode)
+  (add-hook 'python-mode-hook 'electric-pair-local-mode)
+  (add-hook 'python-ts-mode-hook 'electric-pair-local-mode)
+  (add-hook 'csharp-mode-hook 'electric-pair-local-mode)
+  (add-hook 'csharp-ts-mode-hook 'electric-pair-local-mode)
 #+end_src
 
 ** Windmove
