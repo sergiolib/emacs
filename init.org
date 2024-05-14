@@ -7,6 +7,7 @@
 :END:
 #+begin_src emacs-lisp
   (setq package-enable-at-startup nil)
+  (setq elpaca-menu-functions '(elpaca-menu-extensions elpaca-menu-gnu-devel-elpa))
 #+end_src
 
 * Elpaca
@@ -58,8 +59,22 @@
 ** Use package
 #+begin_src emacs-lisp
   (setq use-package-always-ensure t)
+  (elpaca-wait)
 #+end_src
 
+** Eldoc
+#+begin_src emacs-lisp
+  (unload-feature 'eldoc t)
+  (setq custom-delayed-init-variables '())
+  (defvar global-eldoc-mode nil)
+
+  (elpaca eldoc
+    (require 'eldoc)
+    (global-eldoc-mode)
+    (set-face-attribute 'eldoc-highlight-function-argument nil :box t))
+
+  (elpaca-wait)
+#+end_src
 * Basic packages
 ** Evil
 *** Core
@@ -337,13 +352,6 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
     :hook
     (embark-collect-mode . consult-preview-at-point-mode))
 #+end_src
-** Eldoc
-#+begin_src emacs-lisp
-  (use-package eldoc
-    :ensure nil
-    :config
-    (set-face-attribute 'eldoc-highlight-function-argument nil :box t))
-#+end_src
 * Basic config
 #+begin_src emacs-lisp
   (setq completion-ignore-case t)
@@ -361,7 +369,14 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
                   compilation-mode-hook))
     (add-hook mode #'(lambda () (display-line-numbers-mode 0))))
 #+end_src
-
+** Garbage colletion
+#+begin_src emacs-lisp
+(setq gc-cons-threshold 80000000) ;; original value * 100
+#+end_src
+** Read process output max
+#+begin_src emacs-lisp
+(setq read-process-output-max (* 1024 1024)) ;; 1mb
+#+end_src
 ** Backups
 #+begin_src emacs-lisp
   (make-directory "~/.emacs_backup/" t)
@@ -858,7 +873,9 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 #+end_src
 ** Json
 #+begin_src emacs-lisp
-  (use-package jsonrpc)
+  (use-package jsonrpc
+    :config
+    (fset #'jsonrpc--log-event #'ignore))
 #+end_src
 
 #+begin_src emacs-lisp
@@ -880,7 +897,6 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
     :commands (eglot eglot-ensure)
     :init
     (add-hook 'pyvenv-post-activate-hooks 'eglot-ensure 100)
-    :ensure nil
     :hook
     ((csharp-ts-mode csharp-mode) . eglot-ensure)
     :general
@@ -900,7 +916,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
   				    :mypy (:enabled t))
   			  :configurationSources ["flake8"])
   		  :terraform-ls (:prefillRequiredFields t)))
-    (setq eglot-events-buffer-config '(:size 0 :format full))
+    (setq eglot-events-buffer-size 0)
     (setq eglot-server-programs `(((rust-ts-mode rust-mode) . ("rust-analyzer"))
   				((cmake-mode cmake-ts-mode) . ("cmake-language-server"))
   				(vimrc-mode . ("vim-language-server" "--stdio"))
@@ -1000,20 +1016,23 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
                 ("C-c l r" . eglot-rename)
                 ("C-c l a" . eglot-code-actions)))
 #+end_src
+
+#+begin_src emacs-lisp
+    (use-package eglot-booster
+      :after eglot
+      :config (eglot-booster-mode)
+      :ensure (eglot-booster :repo "jdtsmith/eglot-booster" :host github))
+#+end_src
 ** C#
 #+begin_src emacs-lisp
   (use-package csharp-mode
     :ensure nil
     :init
-    (add-hook 'csharp-ts-mode-hook 'dap-mode)
-    (add-hook 'csharp-ts-mode-hook 'eldoc-mode)
-    (add-hook 'csharp-ts-mode-hook #'(lambda () (require 'dap-netcore)))
     (add-hook 'csharp-ts-mode-hook 'which-function-mode)
     (add-hook 'csharp-ts-mode-hook #'(lambda () (setq-local tab-width 4)))
     :config
     :init
     (add-to-list 'exec-path "~/.local/omnisharp")
-    (setq dap-netcore-download-url "https://github.com/Samsung/netcoredbg/releases/download/2.2.3-992/netcoredbg-linux-amd64.tar.gz")
     :mode ("\\.cs$" . csharp-ts-mode))
 #+end_src
 ** Save place
@@ -1124,10 +1143,65 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
     (doom-modeline-mode 1))
 #+end_src
 
+** Dape (for debugging)
+#+begin_src emacs-lisp
+  (use-package dape
+    :preface
+    ;; By default dape shares the same keybinding prefix as `gud'
+    ;; If you do not want to use any prefix, set it to nil.
+    ;; (setq dape-key-prefix "[f5]")
+
+    :hook
+    ;; Save breakpoints on quit
+    ((kill-emacs . dape-breakpoint-save)
+    ;; Load breakpoints on startup
+    (after-init . dape-breakpoint-load))
+
+    :init
+    ;; To use window configuration like gud (gdb-mi)
+    ;; (setq dape-buffer-window-arrangement 'gud)
+
+    :config
+    ;; Info buffers to the right
+    (setq dape-buffer-window-arrangement 'right)
+
+    ;; Global bindings for setting breakpoints with mouse
+    (dape-breakpoint-global-mode)
+
+    ;; To not display info and/or buffers on startup
+    (remove-hook 'dape-on-start-hooks 'dape-info)
+    (remove-hook 'dape-on-start-hooks 'dape-repl)
+
+    ;; To display info and/or repl buffers on stopped
+    (add-hook 'dape-on-stopped-hooks 'dape-info)
+    (add-hook 'dape-on-stopped-hooks 'dape-repl)
+
+    ;; Kill compile buffer on build success
+    (add-hook 'dape-compile-compile-hooks 'kill-buffer)
+
+    ;; Save buffers on startup, useful for interpreted languages
+    (add-hook 'dape-on-start-hooks (lambda () (save-some-buffers t t)))
+
+    ;; Projectile users
+    ;; (setq dape-cwd-fn 'projectile-project-root)
+
+    :bind (:map dape-global-map
+  	      ("<f5>" . 'dape-continue)
+  	      ("C-<f5>" . 'dape-restart)
+  	      ("M-<f5>" . 'dape-stop)
+  	      ("<f10>" . 'dape-next)
+  	      ("<f11>" . 'dape-step-in)
+  	      ("<f12>" . 'dape-step-in))
+    (:map eglot-mode-map
+  	    ("<f5>" . 'dape)))
+#+end_src
+
 * Fixes
 ** Keywords align
 #+begin_src emacs-lisp
-  (load-file (concat user-emacs-directory "fix_keywords_align.el"))
+  (setq fix-keywords-file "fix_keywords_align.el")
+  (when (file-exists-p fix-keywords-file)                           
+    (load-file (concat user-emacs-directory fix-keywords-file)))
 #+end_src
 
 #+begin_src emacs-lisp :tangle fix_keywords_align.el
