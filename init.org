@@ -369,7 +369,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
                   compilation-mode-hook))
     (add-hook mode #'(lambda () (display-line-numbers-mode 0))))
 #+end_src
-** Garbage colletion
+** Garbage collection
 #+begin_src emacs-lisp
 (setq gc-cons-threshold 80000000) ;; original value * 100
 #+end_src
@@ -906,7 +906,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
       "l h" 'eldoc)
     :config
     (set-face-attribute 'eglot-diagnostic-tag-unnecessary-face nil :strike-through t)
-    (add-hook 'eglot-managed-mode #'(lambda () (add-hook 'after-save-hook 'sergio/eglot-auto-format nil t)))
+    (add-hook 'eglot-managed-mode-hook #'(lambda () (add-hook 'after-save-hook 'sergio/eglot-auto-format nil t)))
     (add-hook 'eglot-managed-mode-hook (lambda () (setq completion-at-point-functions '(eglot-completion-at-point python-completion-at-point cape-file t))))
     (setq-default eglot-workspace-configuration
   		'(:pylsp (:plugins (:flake8 (:enabled t)
@@ -1200,7 +1200,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 ** Keywords align
 #+begin_src emacs-lisp
   (setq fix-keywords-file "fix_keywords_align.el")
-  (when (file-exists-p fix-keywords-file)                           
+  (when (file-exists-p fix-keywords-file)
     (load-file (concat user-emacs-directory fix-keywords-file)))
 #+end_src
 
