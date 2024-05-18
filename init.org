@@ -347,6 +347,8 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 * Basic config
 #+begin_src emacs-lisp
   (setq completion-ignore-case t)
+  (setq read-file-name-completion-ignore-case t)
+  (setq read-buffer-completion-ignore-case t)
   (setq display-line-numbers-type 'relative)
   (global-display-line-numbers-mode 1)
   (dolist (mode '(doc-view-mode-hook
