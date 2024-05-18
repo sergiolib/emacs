@@ -891,8 +891,8 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
       "l h" 'eldoc)
     :config
     (set-face-attribute 'eglot-diagnostic-tag-unnecessary-face nil :strike-through t)
-    (add-hook 'eglot-managed-mode #'(lambda () (add-hook 'after-save-hook 'sergio/eglot-auto-format nil t)))
-    (add-hook 'eglot-managed-mode-hook (lambda () (setq completion-at-point-functions '(eglot-completion-at-point python-completion-at-point cape-file t))))
+    (add-hook 'eglot-managed-mode-hook #'(lambda () (add-hook 'after-save-hook 'sergio/eglot-auto-format nil t)))
+    (add-hook 'eglot-managed-mode-hook (lambda () (setq completion-at-point-functions (nconc (butlast completion-at-point-functions) '(cape-file t)))))
     (setq-default eglot-workspace-configuration
   		'(:pylsp (:plugins (:flake8 (:enabled t)
   				    :pycodestyle (:enabled :json-false)
