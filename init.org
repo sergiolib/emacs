@@ -99,7 +99,6 @@
 *** Evil surround
 #+begin_src emacs-lisp
   (use-package evil-surround
-    :defer t
     :config
     (global-evil-surround-mode 1))
 #+end_src
