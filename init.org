@@ -10,71 +10,21 @@
   (setq elpaca-menu-functions '(elpaca-menu-extensions elpaca-menu-gnu-devel-elpa))
 #+end_src
 
-* Elpaca
+* Package
 #+begin_src emacs-lisp
-  (defvar elpaca-installer-version 0.7)
-  (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
-  (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
-  (defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
-  (defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
-    			      :ref nil :depth 1
-    			      :files (:defaults "elpaca-test.el" (:exclude "extensions"))
-    			      :build (:not elpaca--activate-package)))
-  (let* ((repo  (expand-file-name "elpaca/" elpaca-repos-directory))
-         (build (expand-file-name "elpaca/" elpaca-builds-directory))
-         (order (cdr elpaca-order))
-         (default-directory repo))
-    (add-to-list 'load-path (if (file-exists-p build) build repo))
-    (unless (file-exists-p repo)
-      (make-directory repo t)
-      (when (< emacs-major-version 28) (require 'subr-x))
-      (condition-case-unless-debug err
-    	(if-let ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
-    		 ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
-    						 ,@(when-let ((depth (plist-get order :depth)))
-    						     (list (format "--depth=%d" depth) "--no-single-branch"))
-    						 ,(plist-get order :repo) ,repo))))
-    		 ((zerop (call-process "git" nil buffer t "checkout"
-    				       (or (plist-get order :ref) "--"))))
-    		 (emacs (concat invocation-directory invocation-name))
-    		 ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
-    				       "--eval" "(byte-recompile-directory \".\" 0 'force)")))
-    		 ((require 'elpaca))
-    		 ((elpaca-generate-autoloads "elpaca" repo)))
-    	    (progn (message "%s" (buffer-string)) (kill-buffer buffer))
-    	  (error "%s" (with-current-buffer buffer (buffer-string))))
-        ((error) (warn "%s" err) (delete-directory repo 'recursive))))
-    (unless (require 'elpaca-autoloads nil t)
-      (require 'elpaca)
-      (elpaca-generate-autoloads "elpaca" repo)
-      (load "./elpaca-autoloads")))
-  (add-hook 'after-init-hook #'elpaca-process-queues)
-  (elpaca `(,@elpaca-order))
-
-  (elpaca elpaca-use-package
-    ;; Enable use-package :ensure support for Elpaca.
-    (elpaca-use-package-mode))
+  (require 'package)
+  (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+  ;; Comment/uncomment this line to enable MELPA Stable if desired.  See `package-archive-priorities`
+  ;; and `package-pinned-packages`. Most users will not need or want to do this.
+  ;;(add-to-list 'package-archives '("melpa-stable" . "https://stable.melpa.org/packages/") t)
+  (package-initialize) 
+  (require 'use-package)
 #+end_src
-
-** Use package
+* Use package
 #+begin_src emacs-lisp
   (setq use-package-always-ensure t)
-  (elpaca-wait)
 #+end_src
 
-** Eldoc
-#+begin_src emacs-lisp
-  (unload-feature 'eldoc t)
-  (setq custom-delayed-init-variables '())
-  (defvar global-eldoc-mode nil)
-
-  (elpaca eldoc
-    (require 'eldoc)
-    (global-eldoc-mode)
-    (set-face-attribute 'eldoc-highlight-function-argument nil :box t))
-
-  (elpaca-wait)
-#+end_src
 * Basic packages
 ** Evil
 *** Core
@@ -156,8 +106,6 @@
   (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
 #+end_src
 ** General
-General is tricky to configure with Elpaca. Bottom line it requires a wait after the use-package definition.
-
 #+begin_src emacs-lisp
   (use-package general
     :demand t
@@ -170,8 +118,6 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
       :global-prefix "C-SPC")
     (leader-def "e e" 'sergio/open-init-org-file)
     (leader-def "p" '(:keymap project-prefix-map :wk "Projects")))
-
-  (elpaca-wait)
 #+end_src
 ** Orderless
 #+begin_src emacs-lisp
@@ -185,7 +131,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 ** Vertico
 #+begin_src emacs-lisp
   (use-package vertico
-    :ensure (vertico :files (:defaults "extensions/*.el"))
+    ;; :ensure (vertico :files (:defaults "extensions/*.el"))
     :init
     (vertico-mode 1)
     (setq vertico-cycle t)
@@ -200,7 +146,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 ** Corfu
 #+begin_src emacs-lisp
   (use-package corfu
-    :ensure (corfu :files (:defaults "extensions/*"))
+    ;; :ensure (corfu :files (:defaults "extensions/*"))
     :config
     (corfu-popupinfo-mode 1)
     (defun corfu-enable-in-minibuffer ()
@@ -240,10 +186,10 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 #+end_src
 
 #+begin_src emacs-lisp
-  (use-package corfu-mouse
-    :ensure (corfu-mouse :repo "akib/emacs-corfu-mouse" :host codeberg)
-    :hook
-    (corfu-mode . corfu-mouse-mode))
+  ;; (use-package corfu-mouse
+  ;;   ;; :ensure (corfu-mouse :repo "akib/emacs-corfu-mouse" :host codeberg)
+  ;;   :hook
+  ;;   (corfu-mode . corfu-mouse-mode))
 
   (use-package kind-icon
     :after corfu
@@ -281,7 +227,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
     (leader-def "cf" 'cape-file))
 #+end_src
 
-** Marginalia
+* Marginalia
 #+begin_src emacs-lisp
   (use-package marginalia
     :after vertico
@@ -326,7 +272,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
     (leader-def
       "." 'embark-act))
 #+end_src
-** Consult
+* Consult
 #+begin_src emacs-lisp
   (use-package consult
     :bind
@@ -401,7 +347,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 
 ** Notes
 #+begin_src emacs-lisp
-  (setq notes-directory "~/Documents/Notes/")
+  (setq notes-directory "~/Google Drive/My Drive/Notes/")
 #+end_src
 
 ** Scratch message / Startup
@@ -409,7 +355,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
   (setq initial-scratch-message "")
   (setq inhibit-startup-message t)
   (setq system-time-locale "C")
-  (setq visual-bell t)
+  (setq visible-bell t)
   (setq enable-local-eval t)
 #+end_src
 
@@ -574,7 +520,7 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 ** Theme
 #+begin_src emacs-lisp
   (setq modus-themes-mode-line '(accented))
-  (load-theme 'modus-operandi)
+  (load-theme 'modus-vivendi)
 #+end_src
 *** Extra themes
 #+begin_src emacs-lisp
@@ -1019,10 +965,11 @@ General is tricky to configure with Elpaca. Bottom line it requires a wait after
 #+end_src
 
 #+begin_src emacs-lisp
-    (use-package eglot-booster
-      :after eglot
-      :config (eglot-booster-mode)
-      :ensure (eglot-booster :repo "jdtsmith/eglot-booster" :host github))
+  ;; (use-package eglot-booster
+  ;;   :after eglot
+  ;;   :config (eglot-booster-mode)
+  ;;   ;; :ensure (eglot-booster :repo "jdtsmith/eglot-booster" :host github)
+  ;;   )
 #+end_src
 ** C#
 #+begin_src emacs-lisp
