@@ -356,6 +356,7 @@
   (setq inhibit-startup-message t)
   (setq system-time-locale "C")
   (setq visible-bell t)
+  (setq ring-bell-function 'ignore)
   (setq enable-local-eval t)
 #+end_src
 
