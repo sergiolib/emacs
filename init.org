@@ -526,6 +526,10 @@
 ;;   (setq mac-command-modifier 'control
 ;;         mac-control-modifier 'super)
 #+end_src
+** Auto save visited mode
+#+begin_src emacs-lisp
+(auto-save-visited-mode 1)
+#+end_src
 * UI
 ** Modes
 #+begin_src emacs-lisp
