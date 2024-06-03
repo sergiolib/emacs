@@ -531,6 +531,10 @@
 #+begin_src emacs-lisp
   (global-auto-revert-mode)
 #+end_src
+** Auto save visited mode
+#+begin_src emacs-lisp
+(auto-save-visited-mode 1)
+#+end_src
 * UI
 ** Modes
 #+begin_src emacs-lisp
