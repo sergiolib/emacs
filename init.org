@@ -8,6 +8,7 @@
 #+begin_src emacs-lisp
   (setq package-enable-at-startup nil)
   (setq elpaca-menu-functions '(elpaca-menu-extensions elpaca-menu-gnu-devel-elpa))
+  (setq warning-minimum-level :error)
 #+end_src
 
 * Package
@@ -135,10 +136,9 @@
   (use-package orderless
     :ensure t
     :custom
-    (completion-styles '(orderless basic))
+    (completion-styles '(orderless flex basic))
     (completion-category-overrides '((file (styles partial-completion)))))
 #+end_src
-
 ** Vertico
 #+begin_src emacs-lisp
   (use-package vertico
@@ -310,6 +310,7 @@
 #+end_src
 * Basic config
 #+begin_src emacs-lisp
+  (defalias 'yes-or-no-p 'y-or-n-p)
   (setq completion-ignore-case t)
   (setq read-file-name-completion-ignore-case t)
   (setq read-buffer-completion-ignore-case t)
@@ -523,8 +524,12 @@
 #+RESULTS:
 ** Swap CMD and Copy
 #+begin_src emacs-lisp
-;;   (setq mac-command-modifier 'control
-;;         mac-control-modifier 'super)
+  (setq mac-command-modifier 'meta
+        mac-right-option-modifier nil)
+#+end_src
+** Auto revert
+#+begin_src emacs-lisp
+  (global-auto-revert-mode)
 #+end_src
 * UI
 ** Modes
@@ -655,16 +660,6 @@
     :config
     (rainbow-mode 1))
 #+end_src
-** Vterm
-#+begin_src emacs-lisp
-  (use-package vterm
-    :commands (vterm vterm-other-window)
-    :config
-    (setq vterm-shell "/usr/bin/bash")
-    :bind
-    (("C-c x x" . 'vterm)
-     ("C-c x v" . 'vterm-other-window)))
-#+end_src
 ** Docker
 #+begin_src emacs-lisp
   (use-package docker
@@ -691,18 +686,19 @@
   (use-package python
     :ensure nil
     :bind (:map python-ts-mode-map
-  	      (
-  	      ("M-<left>" . python-indent-shift-left)
-  	      ("M-<right>" . python-indent-shift-right)
-  	      ("C-c C-k" . python-shell-restart)
-  	      ("C-<return>" . (lambda ()
-  				(interactive)
-  				(python-shell-send-statement)
-  				(python-nav-forward-statement)))
-  	      ))
+                (
+                 ("M-<left>" . python-indent-shift-left)
+                 ("M-<right>" . python-indent-shift-right)
+                 ("C-c C-k" . python-shell-restart)
+                 ("C-<return>" . (lambda ()
+                                   (interactive)
+                                   (python-shell-send-statement)
+                                   (python-nav-forward-statement)))
+                 ))
     :config
+    (setq python-interpreter "python3")
     (define-key inferior-python-mode-map (kbd "C-c C-k")
-  	      #'(lambda () (interactive) (kill-buffer)))
+                #'(lambda () (interactive) (kill-buffer)))
     :mode
     (("\\.py$" . python-ts-mode)
      ("\\.ipynb$" . python-ts-mode))
@@ -713,21 +709,25 @@
 ** Pyvenv
 #+begin_src emacs-lisp
   (use-package pyvenv
-      :init
-      (pyvenv-tracking-mode 1)
-      :hook
-      (python-ts-mode . pyvenv-mode)
-      :config
-      (add-hook 'pyvenv-post-activate-hooks #'(lambda ()
-  						(let* ((version_pyscript "import sys; print(f\"{sys.version_info[0]}.{sys.version_info[1]}\", end=\"\")")
-  						       (python-version (shell-command-to-string (concat "python -c '" version_pyscript "'"))))
-  						 (setenv "PYTHONPATH" (concat pyvenv-virtual-env "lib/python" python-version "/site-packages/"))))))
+      ;; :init
+      ;; (pyvenv-tracking-mode 1)
+      ;; :hook
+      ;; (python-ts-mode . pyvenv-mode)
+      ;; :config
+      ;; (add-hook 'pyvenv-post-activate-hooks #'(lambda ()
+      ;;                                           (let* ((version_pyscript "import sys; print(f\"{sys.version_info[0]}.{sys.version_info[1]}\", end=\"\")")
+      ;;                                                  (python-version (shell-command-to-string (concat "python -c '" version_pyscript "'"))))
+      ;;                                            (setenv "PYTHONPATH" (concat pyvenv-virtual-env "lib/python" python-version "/site-packages/")))))
+  )
 #+end_src
 ** Poetry
 #+begin_src emacs-lisp
   (use-package poetry
+  :config
+    (setq poetry-tracking-strategy 'project)
     :hook
-    (python-ts-mode . poetry-tracking-mode))
+    (python-ts-mode . poetry-tracking-mode)
+  )
 #+end_src
 ** Markdown
 #+begin_src emacs-lisp
@@ -857,128 +857,137 @@
 #+end_src
 
 #+begin_src emacs-lisp
-  (use-package eglot
-    :commands (eglot eglot-ensure)
-    :init
-    (add-hook 'pyvenv-post-activate-hooks 'eglot-ensure 100)
-    :hook
-    ((csharp-ts-mode csharp-mode) . eglot-ensure)
-    :general
-    (leader-def
-      "l r" 'eglot-rename
-      "l a" 'eglot-code-actions
-      "l h" 'eldoc)
-    :config
-    (set-face-attribute 'eglot-diagnostic-tag-unnecessary-face nil :strike-through t)
-    (add-hook 'eglot-managed-mode-hook #'(lambda () (add-hook 'after-save-hook 'sergio/eglot-auto-format nil t)))
-    (add-hook 'eglot-managed-mode-hook (lambda () (setq completion-at-point-functions (nconc (butlast completion-at-point-functions) '(cape-file t)))))
-    (setq-default eglot-workspace-configuration
-  		'(:pylsp (:plugins (:flake8 (:enabled t)
-  				    :pycodestyle (:enabled :json-false)
-  				    :pyflakes (:enabled :json-false)
-  				    :mccabe (:enabled :json-false)
-  				    :mypy (:enabled t))
-  			  :configurationSources ["flake8"])
-  		  :terraform-ls (:prefillRequiredFields t)))
-    (setq eglot-events-buffer-size 0)
-    (setq eglot-server-programs `(((rust-ts-mode rust-mode) . ("rust-analyzer"))
-  				((cmake-mode cmake-ts-mode) . ("cmake-language-server"))
-  				(vimrc-mode . ("vim-language-server" "--stdio"))
-  				((python-mode python-ts-mode)
-  				 . ,(eglot-alternatives
-  				     '("pylsp" "pyls" ("pyright-langserver" "--stdio") "jedi-language-server")))
-  				((js-json-mode json-mode json-ts-mode)
-  				 . ,(eglot-alternatives '(("vscode-json-language-server" "--stdio")
-  							  ("vscode-json-languageserver" "--stdio")
-  							  ("json-languageserver" "--stdio"))))
-  				((js-mode js-ts-mode tsx-ts-mode typescript-ts-mode typescript-mode)
-  				 . ("typescript-language-server" "--stdio"))
-  				((bash-ts-mode sh-mode) . ("bash-language-server" "start"))
-  				((php-mode phps-mode)
-  				 . ,(eglot-alternatives
-  				     '(("phpactor" "language-server")
-  				       ("php" "vendor/felixfbecker/language-server/bin/php-language-server.php"))))
-  				((c-mode c-ts-mode c++-mode c++-ts-mode objc-mode)
-  				 . ,(eglot-alternatives
-  				     '("clangd" "ccls")))
-  				(((caml-mode :language-id "ocaml")
-  				  (tuareg-mode :language-id "ocaml") reason-mode)
-  				 . ("ocamllsp"))
-  				((ruby-mode ruby-ts-mode)
-  				 . ("solargraph" "socket" "--port" :autoport))
-  				(haskell-mode
-  				 . ("haskell-language-server-wrapper" "--lsp"))
-  				(elm-mode . ("elm-language-server"))
-  				(mint-mode . ("mint" "ls"))
-  				(kotlin-mode . ("kotlin-language-server"))
-  				((go-mode go-dot-mod-mode go-dot-work-mode go-ts-mode go-mod-ts-mode)
-  				 . ("gopls"))
-  				((R-mode ess-r-mode) . ("R" "--slave" "-e"
-  							"languageserver::run()"))
-  				((java-mode java-ts-mode) . ("jdtls"))
-  				((dart-mode dart-ts-mode)
-  				 . ("dart" "language-server"
-  				    "--client-id" "emacs.eglot-dart"))
-  				((elixir-mode elixir-ts-mode heex-ts-mode)
-  				 . ,(if (and (fboundp 'w32-shell-dos-semantics)
-  					 (w32-shell-dos-semantics))
-  					'("language_server.bat")
-  				      (eglot-alternatives
-  				       '("language_server.sh" "start_lexical.sh"))))
-  				(ada-mode . ("ada_language_server"))
-  				(scala-mode . ,(eglot-alternatives
-  						'("metals" "metals-emacs")))
-  				(racket-mode . ("racket" "-l" "racket-langserver"))
-  				((tex-mode context-mode texinfo-mode bibtex-mode)
-  				 . ,(eglot-alternatives '("digestif" "texlab")))
-  				(erlang-mode . ("erlang_ls" "--transport" "stdio"))
-  				((yaml-ts-mode yaml-mode) . ("yaml-language-server" "--stdio"))
-  				(nix-mode . ,(eglot-alternatives '("nil" "rnix-lsp" "nixd")))
-  				(nickel-mode . ("nls"))
-  				(gdscript-mode . ("localhost" 6008))
-  				((fortran-mode f90-mode) . ("fortls"))
-  				(futhark-mode . ("futhark" "lsp"))
-  				((lua-mode lua-ts-mode) . ,(eglot-alternatives
-  							    '("lua-language-server" "lua-lsp")))
-  				(zig-mode . ("zls"))
-  				((css-mode css-ts-mode)
-  				 . ,(eglot-alternatives '(("vscode-css-language-server" "--stdio")
-  							  ("css-languageserver" "--stdio"))))
-  				(html-mode . ,(eglot-alternatives '(("vscode-html-language-server" "--stdio") ("html-languageserver" "--stdio"))))
-  				((dockerfile-mode dockerfile-ts-mode) . ("docker-langserver" "--stdio"))
-  				((clojure-mode clojurescript-mode clojurec-mode clojure-ts-mode)
-  				 . ("clojure-lsp"))
-  				((csharp-mode csharp-ts-mode)
-  				 . ,(eglot-alternatives
-  				     '(("OmniSharp" "-lsp")
-  				       ("csharp-ls"))))
-  				(purescript-mode . ("purescript-language-server" "--stdio"))
-  				((perl-mode cperl-mode) . ("perl" "-MPerl::LanguageServer" "-e" "Perl::LanguageServer::run"))
-  				(markdown-mode
-  				 . ,(eglot-alternatives
-  				     '(("marksman" "server")
-  				       ("vscode-markdown-language-server" "--stdio"))))
-  				(graphviz-dot-mode . ("dot-language-server" "--stdio"))
-  				(terraform-mode . ("terraform-ls" "serve"))
-  				(svelte-mode . ("svelteserver" "--stdio"))))
-    (defun sergio/count-flymake-errors ()
-      (let ((count 0))
-        (dolist (d (flymake-diagnostics))
-  	(when (= (flymake--severity :error)
-  		 (flymake--severity (flymake-diagnostic-type d)))
-  	  (cl-incf count)))
-        count))
-    (defun sergio/prepend-flymake-to-eldoc ()
-      "Remove the flymake eldoc function if it is there, and then move it to the beginning of the eldoc-documentation-functions list."
-      (interactive)
-      (let* ((funcs eldoc-documentation-functions)
-  	   (funcs-with-flymake (push 'flymake-eldoc-function funcs))
-  	   (funcs-final (cl-remove-duplicates funcs-with-flymake :from-end t)))
-        (setq eldoc-documentation-functions funcs-final)))
-    (add-hook 'eglot-managed-mode-hook 'sergio/prepend-flymake-to-eldoc)
-    :bind (:map eglot-mode-map
-                ("C-c l r" . eglot-rename)
-                ("C-c l a" . eglot-code-actions)))
+    (use-package eglot
+      :commands (eglot eglot-ensure)
+      :init
+      (add-hook 'pyvenv-post-activate-hooks 'eglot-ensure 100)
+      :hook
+      ((csharp-ts-mode csharp-mode) . eglot-ensure)
+      :general
+      (leader-def
+        "l r" 'eglot-rename
+        "l a" 'eglot-code-actions
+        "l h" 'eldoc)
+      :config
+      (set-face-attribute 'eglot-diagnostic-tag-unnecessary-face nil :strike-through t)
+      (add-hook 'eglot-managed-mode-hook #'(lambda () (add-hook 'after-save-hook 'sergio/eglot-auto-format nil t)))
+      (add-hook 'eglot-managed-mode-hook (lambda () (setq completion-at-point-functions (nconc (butlast completion-at-point-functions) '(cape-file t)))))
+      (setq-default eglot-workspace-configuration
+                    '(:pylsp (:plugins (
+                                        :flake8 (:enabled :json-false)
+                                        :pycodestyle (:enabled :json-false)
+                                        :pyflakes (:enabled :json-false)
+                                        :mccabe (:enabled :json-false)
+                                        :mypy (:enabled :json-false)
+                                        :ruff (
+                                               :enabled t
+                                               :formatEnabled t
+                                               :lineLength 160
+                                               :targetVersion "py311"
+                                                        )
+                                        )
+                                       :configurationSources ["flake8"])
+                             :terraform-ls (:prefillRequiredFields t)
+                             :typescript-language-server (:typescript (:format (:indentSize 2))) ))
+      (setq eglot-events-buffer-size 2000000)
+      (setq eglot-server-programs `(((rust-ts-mode rust-mode) . ("rust-analyzer"))
+                                    ((cmake-mode cmake-ts-mode) . ("cmake-language-server"))
+                                    (vimrc-mode . ("vim-language-server" "--stdio"))
+                                    ((python-mode python-ts-mode)
+                                     . ,(eglot-alternatives
+                                         '("pylsp" "pyls" ("pyright-langserver" "--stdio") "jedi-language-server")))
+                                    ((js-json-mode json-mode json-ts-mode)
+                                     . ,(eglot-alternatives '(("vscode-json-language-server" "--stdio")
+                                                              ("vscode-json-languageserver" "--stdio")
+                                                              ("json-languageserver" "--stdio"))))
+                                    ((js-mode js-ts-mode tsx-ts-mode typescript-ts-mode typescript-mode)
+                                     . ("typescript-language-server" "--stdio"))
+                                    ((bash-ts-mode sh-mode) . ("bash-language-server" "start"))
+                                    ((php-mode phps-mode)
+                                     . ,(eglot-alternatives
+                                         '(("phpactor" "language-server")
+                                           ("php" "vendor/felixfbecker/language-server/bin/php-language-server.php"))))
+                                    ((c-mode c-ts-mode c++-mode c++-ts-mode objc-mode)
+                                     . ,(eglot-alternatives
+                                         '("clangd" "ccls")))
+                                    (((caml-mode :language-id "ocaml")
+                                      (tuareg-mode :language-id "ocaml") reason-mode)
+                                     . ("ocamllsp"))
+                                    ((ruby-mode ruby-ts-mode)
+                                     . ("solargraph" "socket" "--port" :autoport))
+                                    (haskell-mode
+                                     . ("haskell-language-server-wrapper" "--lsp"))
+                                    (elm-mode . ("elm-language-server"))
+                                    (mint-mode . ("mint" "ls"))
+                                    (kotlin-mode . ("kotlin-language-server"))
+                                    ((go-mode go-dot-mod-mode go-dot-work-mode go-ts-mode go-mod-ts-mode)
+                                     . ("gopls"))
+                                    ((R-mode ess-r-mode) . ("R" "--slave" "-e"
+                                                            "languageserver::run()"))
+                                    ((java-mode java-ts-mode) . ("jdtls"))
+                                    ((dart-mode dart-ts-mode)
+                                     . ("dart" "language-server"
+                                        "--client-id" "emacs.eglot-dart"))
+                                    ((elixir-mode elixir-ts-mode heex-ts-mode)
+                                     . ,(if (and (fboundp 'w32-shell-dos-semantics)
+                                                 (w32-shell-dos-semantics))
+                                            '("language_server.bat")
+                                          (eglot-alternatives
+                                           '("language_server.sh" "start_lexical.sh"))))
+                                    (ada-mode . ("ada_language_server"))
+                                    (scala-mode . ,(eglot-alternatives
+                                                    '("metals" "metals-emacs")))
+                                    (racket-mode . ("racket" "-l" "racket-langserver"))
+                                    ((tex-mode context-mode texinfo-mode bibtex-mode)
+                                     . ,(eglot-alternatives '("digestif" "texlab")))
+                                    (erlang-mode . ("erlang_ls" "--transport" "stdio"))
+                                    ((yaml-ts-mode yaml-mode) . ("yaml-language-server" "--stdio"))
+                                    (nix-mode . ,(eglot-alternatives '("nil" "rnix-lsp" "nixd")))
+                                    (nickel-mode . ("nls"))
+                                    (gdscript-mode . ("localhost" 6008))
+                                    ((fortran-mode f90-mode) . ("fortls"))
+                                    (futhark-mode . ("futhark" "lsp"))
+                                    ((lua-mode lua-ts-mode) . ,(eglot-alternatives
+                                                                '("lua-language-server" "lua-lsp")))
+                                    (zig-mode . ("zls"))
+                                    ((css-mode css-ts-mode)
+                                     . ,(eglot-alternatives '(("vscode-css-language-server" "--stdio")
+                                                              ("css-languageserver" "--stdio"))))
+                                    (html-mode . ,(eglot-alternatives '(("vscode-html-language-server" "--stdio") ("html-languageserver" "--stdio"))))
+                                    ((dockerfile-mode dockerfile-ts-mode) . ("docker-langserver" "--stdio"))
+                                    ((clojure-mode clojurescript-mode clojurec-mode clojure-ts-mode)
+                                     . ("clojure-lsp"))
+                                    ((csharp-mode csharp-ts-mode)
+                                     . ,(eglot-alternatives
+                                         '(("OmniSharp" "-lsp")
+                                           ("csharp-ls"))))
+                                    (purescript-mode . ("purescript-language-server" "--stdio"))
+                                    ((perl-mode cperl-mode) . ("perl" "-MPerl::LanguageServer" "-e" "Perl::LanguageServer::run"))
+                                    (markdown-mode
+                                     . ,(eglot-alternatives
+                                         '(("marksman" "server")
+                                           ("vscode-markdown-language-server" "--stdio"))))
+                                    (graphviz-dot-mode . ("dot-language-server" "--stdio"))
+                                    (terraform-mode . ("terraform-ls" "serve"))
+                                    (svelte-mode . ("svelteserver" "--stdio"))))
+      (defun sergio/count-flymake-errors ()
+        (let ((count 0))
+          (dolist (d (flymake-diagnostics))
+            (when (= (flymake--severity :error)
+                     (flymake--severity (flymake-diagnostic-type d)))
+              (cl-incf count)))
+          count))
+      (defun sergio/prepend-flymake-to-eldoc ()
+        "Remove the flymake eldoc function if it is there, and then move it to the beginning of the eldoc-documentation-functions list."
+        (interactive)
+        (let* ((funcs eldoc-documentation-functions)
+               (funcs-with-flymake (push 'flymake-eldoc-function funcs))
+               (funcs-final (cl-remove-duplicates funcs-with-flymake :from-end t)))
+          (setq eldoc-documentation-functions funcs-final)))
+      (add-hook 'eglot-managed-mode-hook 'sergio/prepend-flymake-to-eldoc)
+      :bind (:map eglot-mode-map
+                  ("C-c l r" . eglot-rename)
+                  ("C-c l a" . eglot-code-actions)))
 #+end_src
 
 #+begin_src emacs-lisp
@@ -1159,6 +1168,32 @@
   	      ("<f12>" . 'dape-step-in))
     (:map eglot-mode-map
   	    ("<f5>" . 'dape)))
+#+end_src
+
+** LSP Mode
+#+begin_src emacs-lisp
+  (use-package lsp-mode
+    :hook
+    (css-mode . lsp))
+#+end_src
+
+** TSX mode
+#+begin_src emacs-lisp
+  (use-package typescript-ts-mode
+    :ensure nil
+    :mode ("\\.tsx\\'" . tsx-ts-mode)
+    :hook
+    (tsx-ts-mode . eglot-ensure)
+    :config
+    (cl-defmethod project-root ((project (head eglot-project)))
+      (cdr project))
+
+    (defun my-project-try-tsconfig-json (dir)
+      (when-let* ((found (locate-dominating-file dir "tsconfig.json")))
+        (cons 'eglot-project found)))
+
+    (add-hook 'project-find-functions
+              'my-project-try-tsconfig-json nil nil))
 #+end_src
 
 * Fixes
